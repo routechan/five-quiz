@@ -59,7 +59,6 @@ export function DrawingCanvas({ onSubmit, disabled = false }: Props) {
   const startDrawing = useCallback(
     (e: React.TouchEvent | React.MouseEvent) => {
       if (disabled) return;
-      e.preventDefault();
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext('2d');
       if (!ctx) return;
@@ -76,7 +75,6 @@ export function DrawingCanvas({ onSubmit, disabled = false }: Props) {
   const draw = useCallback(
     (e: React.TouchEvent | React.MouseEvent) => {
       if (!isDrawing || disabled) return;
-      e.preventDefault();
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext('2d');
       if (!ctx) return;

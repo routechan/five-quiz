@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+
 import { api } from "@/lib/api";
 
 export default function TopPage() {
@@ -334,13 +334,9 @@ export default function TopPage() {
       <footer
         className="w-full py-6 mt-auto relative z-10 text-center"
       >
-        <Link
-          href="/contact"
-          className="text-sm font-bold transition-colors hover:underline"
-          style={{ color: "var(--color-text-muted)" }}
-        >
-          お問い合わせ
-        </Link>
+        <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+          &copy; ファイブクイズ
+        </p>
       </footer>
     </div>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { api } from '@/lib/api';
 import type { Room, Player, Answer } from '@/types';
@@ -24,10 +24,12 @@ export function useRoom(roomCode: string) {
     error: null,
   });
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const roomCodeRef = useRef(roomCode);
+  roomCodeRef.current = roomCode;
 
-  const fetchRoom = useCallback(async () => {
+  const fetchRoom = async () => {
     try {
-      const data = await api.getRoom(roomCode);
+      const data = await api.getRoom(roomCodeRef.current);
       setState({
         room: data.room,
         players: data.players,
@@ -43,11 +45,14 @@ export function useRoom(roomCode: string) {
         error: 'ルーム情報の取得に失敗しました',
       }));
     }
-  }, [roomCode]);
+  };
+
+  const fetchRoomRef = useRef(fetchRoom);
+  fetchRoomRef.current = fetchRoom;
 
   useEffect(() => {
-    fetchRoom();
-  }, [fetchRoom]);
+    fetchRoomRef.current();
+  }, [roomCode]);
 
   // Supabase Realtime 購読
   useEffect(() => {
@@ -66,7 +71,7 @@ export function useRoom(roomCode: string) {
         filter: `id=eq.${roomId}`,
       },
       () => {
-        fetchRoom();
+        fetchRoomRef.current();
       }
     );
 
@@ -80,7 +85,7 @@ export function useRoom(roomCode: string) {
         filter: `room_id=eq.${roomId}`,
       },
       () => {
-        fetchRoom();
+        fetchRoomRef.current();
       }
     );
 
@@ -94,7 +99,7 @@ export function useRoom(roomCode: string) {
         filter: `room_id=eq.${roomId}`,
       },
       () => {
-        fetchRoom();
+        fetchRoomRef.current();
       }
     );
 
@@ -104,7 +109,7 @@ export function useRoom(roomCode: string) {
     return () => {
       channel.unsubscribe();
     };
-  }, [state.room?.id, roomCode, fetchRoom]);
+  }, [state.room?.id, roomCode]);
 
   return {
     ...state,

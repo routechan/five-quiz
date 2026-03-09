@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { api } from '@/lib/api';
 import { PlayerCard } from '@/components/PlayerCard';
 import type { Room, Player } from '@/types';
@@ -17,12 +17,13 @@ export function WaitingRoom({ room, players, currentPlayer, isHost, roomCode }: 
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
-  const [filling, setFilling] = useState(false);
+
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const dragItemRef = useRef<number | null>(null);
   const touchStartY = useRef<number>(0);
   const touchCurrentElement = useRef<HTMLElement | null>(null);
+  const playerListRef = useRef<HTMLDivElement>(null);
 
   const sortedPlayers = [...players].sort(
     (a, b) => (a.position ?? 99) - (b.position ?? 99)
@@ -102,20 +103,26 @@ export function WaitingRoom({ room, players, currentPlayer, isHost, roomCode }: 
     setDragIndex(index);
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (dragItemRef.current === null) return;
-    e.preventDefault();
-    const touchY = e.touches[0].clientY;
-    const elements = document.querySelectorAll('[data-player-index]');
-    for (const el of elements) {
-      const rect = el.getBoundingClientRect();
-      if (touchY >= rect.top && touchY <= rect.bottom) {
-        const idx = parseInt(el.getAttribute('data-player-index') || '-1');
-        if (idx >= 0) setDragOverIndex(idx);
-        break;
+  useEffect(() => {
+    const el = playerListRef.current;
+    if (!el || !isHost) return;
+    const onTouchMove = (e: TouchEvent) => {
+      if (dragItemRef.current === null) return;
+      e.preventDefault();
+      const touchY = e.touches[0].clientY;
+      const elements = document.querySelectorAll('[data-player-index]');
+      for (const elem of elements) {
+        const rect = elem.getBoundingClientRect();
+        if (touchY >= rect.top && touchY <= rect.bottom) {
+          const idx = parseInt(elem.getAttribute('data-player-index') || '-1');
+          if (idx >= 0) setDragOverIndex(idx);
+          break;
+        }
       }
-    }
-  };
+    };
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    return () => el.removeEventListener('touchmove', onTouchMove);
+  }, [isHost]);
 
   const handleTouchEnd = async () => {
     const from = dragItemRef.current;
@@ -166,7 +173,7 @@ export function WaitingRoom({ room, players, currentPlayer, isHost, roomCode }: 
           <span style={{ color: 'var(--color-text-muted)' }}>/ 5</span>
         </h2>
 
-        <div className="space-y-2">
+        <div ref={playerListRef} className="space-y-2">
           {sortedPlayers.map((player, index) => (
             <div
               key={player.id}
@@ -177,7 +184,6 @@ export function WaitingRoom({ room, players, currentPlayer, isHost, roomCode }: 
               onDrop={() => handleDrop(index)}
               onDragEnd={handleDragEnd}
               onTouchStart={(e) => handleTouchStart(e, index)}
-              onTouchMove={(e) => handleTouchMove(e)}
               onTouchEnd={handleTouchEnd}
               className="flex items-center gap-2 transition-all"
               style={{
@@ -227,24 +233,6 @@ export function WaitingRoom({ room, players, currentPlayer, isHost, roomCode }: 
           </p>
         )}
       </div>
-
-      {/* ダミープレイヤー追加 */}
-      {isHost && players.length < 5 && (
-        <button
-          onClick={async () => {
-            setFilling(true);
-            try {
-              await fetch(`/api/rooms/${roomCode}/dev-fill`, { method: 'POST' });
-            } catch { /* ignore */ }
-            setFilling(false);
-          }}
-          disabled={filling}
-          className="w-full py-3 font-bold rounded-xl transition-colors disabled:opacity-50 text-sm cursor-pointer"
-          style={{ background: '#7C3AED', color: 'white' }}
-        >
-          {filling ? '追加中...' : `ダミープレイヤーを追加 (残り${5 - players.length}人)`}
-        </button>
-      )}
 
       {/* ゲーム開始 */}
       {error && (

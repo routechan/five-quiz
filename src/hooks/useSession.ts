@@ -1,14 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore } from 'react';
 import { getSessionId } from '@/lib/session';
 
+function subscribe() {
+  // sessionId never changes after initial creation, so no-op
+  return () => {};
+}
+
 export function useSession() {
-  const [sessionId, setSessionId] = useState<string>('');
-
-  useEffect(() => {
-    setSessionId(getSessionId());
-  }, []);
-
-  return sessionId;
+  return useSyncExternalStore(subscribe, getSessionId, () => '');
 }
