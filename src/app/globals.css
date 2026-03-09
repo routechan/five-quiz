@@ -1,26 +1,239 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-primary: #C4291E;
+  --color-primary-light: #E03E33;
+  --color-primary-dark: #9B1F16;
+  --color-secondary: #C0C0C0;
+  --color-secondary-light: #D9D9D9;
+  --color-secondary-dark: #A0A0A0;
+  --color-canvas: #1E90FF;
+  --color-canvas-light: #4DA6FF;
+  --color-canvas-dark: #0066CC;
+  --color-bg: #FFFFFF;
+  --color-bg-card: #F5F5F5;
+  --color-bg-elevated: #EBEBEB;
+  --color-text-primary: #1A1A1A;
+  --color-text-secondary: #555555;
+  --color-text-muted: #888888;
+  --color-text-on-primary: #FFFFFF;
+  --color-text-on-canvas: #FFFFFF;
+  --color-success: #22C55E;
+  --color-error: #EF4444;
+  --color-gold: #FFD700;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-text-primary);
+  --font-sans: var(--font-quiz-sans);
+  --font-mono: var(--font-quiz-mono);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-quiz-sans), 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+}
+
+/* Quiz show style decorations */
+@keyframes quiz-shine {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes float-in {
+  0% { opacity: 0; transform: translateY(20px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes pop-in {
+  0% { transform: scale(0.8); opacity: 0; }
+  60% { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(196, 41, 30, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(196, 41, 30, 0.6); }
+}
+
+@keyframes slide-up {
+  0% { opacity: 0; transform: translateY(30px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes count-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+.animate-float-in {
+  animation: float-in 0.4s ease-out forwards;
+}
+
+.animate-pop-in {
+  animation: pop-in 0.3s ease-out forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.5s ease-out forwards;
+}
+
+.animate-count-pop {
+  animation: count-pop 0.3s ease-out;
+}
+
+/* Shiny gradient text for title */
+.quiz-title-shine {
+  background: linear-gradient(
+    90deg,
+    var(--color-primary) 0%,
+    #FF6B5E 25%,
+    var(--color-gold) 50%,
+    #FF6B5E 75%,
+    var(--color-primary) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: quiz-shine 3s linear infinite;
+}
+
+/* Card with quiz show border */
+.quiz-card {
+  background: white;
+  border: 3px solid var(--color-secondary);
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.quiz-card-primary {
+  background: white;
+  border: 3px solid var(--color-primary);
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(196, 41, 30, 0.15);
+}
+
+.quiz-card-canvas {
+  background: var(--color-canvas);
+  border: 3px solid var(--color-canvas-dark);
+  border-radius: 16px;
+  color: white;
+}
+
+/* Primary button */
+.btn-primary {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+  color: white;
+  font-weight: 800;
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 4px 12px rgba(196, 41, 30, 0.35);
+  transition: all 0.2s ease;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-primary) 100%);
+  box-shadow: 0 6px 16px rgba(196, 41, 30, 0.45);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: scale(0.97);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Secondary button */
+.btn-secondary {
+  background: linear-gradient(135deg, var(--color-secondary-dark) 0%, var(--color-secondary) 100%);
+  color: white;
+  font-weight: 700;
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-light) 100%);
+  transform: translateY(-1px);
+}
+
+.btn-secondary:active {
+  transform: scale(0.97);
+}
+
+/* Canvas-colored button */
+.btn-canvas {
+  background: linear-gradient(135deg, var(--color-canvas) 0%, var(--color-canvas-light) 100%);
+  color: white;
+  font-weight: 700;
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 4px 12px rgba(30, 144, 255, 0.35);
+  transition: all 0.2s ease;
+}
+
+.btn-canvas:hover {
+  background: linear-gradient(135deg, var(--color-canvas-light) 0%, var(--color-canvas) 100%);
+  transform: translateY(-1px);
+}
+
+.btn-canvas:active {
+  transform: scale(0.97);
+}
+
+/* Quiz show header bar */
+.quiz-header {
+  background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 50%, var(--color-primary-light) 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(196, 41, 30, 0.3);
+}
+
+/* Position badge */
+.position-badge {
+  background: linear-gradient(135deg, var(--color-canvas) 0%, var(--color-canvas-dark) 100%);
+  color: white;
+  font-weight: 800;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  box-shadow: 0 2px 6px rgba(30, 144, 255, 0.4);
+}
+
+/* Quiz show-style question panel */
+.question-panel {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border: 3px solid var(--color-canvas);
+  border-radius: 16px;
+  color: white;
+  box-shadow: 0 0 20px rgba(30, 144, 255, 0.2);
+}
+
+/* Correct/incorrect markers */
+.marker-correct {
+  color: var(--color-primary);
+  text-shadow: 0 0 8px rgba(196, 41, 30, 0.4);
+}
+
+.marker-incorrect {
+  color: var(--color-canvas);
+  text-shadow: 0 0 8px rgba(30, 144, 255, 0.4);
 }
