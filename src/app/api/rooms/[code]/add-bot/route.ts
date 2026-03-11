@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase-server';
+import { NextRequest, NextResponse } from "next/server";
+import { createServerSupabase } from "@/lib/supabase-server";
 
-// POST /api/rooms/[code]/add-bot - 空きスロットにBOTを追加
+const BOT_NAMES = ["ジュン", "タイゾウ", "ケン", "オサム"];
+
+// POST /api/rooms/[code]/add-bot - BOTで5人まで埋める
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ code: string }> }
@@ -13,84 +15,97 @@ export async function POST(
     const { sessionId } = await request.json();
 
     const { data: room } = await supabase
-      .from('rooms')
-      .select('*')
-      .eq('room_code', code)
+      .from("rooms")
+      .select("*")
+      .eq("room_code", code)
       .single();
 
     if (!room) {
       return NextResponse.json(
-        { error: { code: 'ROOM_NOT_FOUND', message: 'ルームが見つかりません' } },
+        {
+          error: { code: "ROOM_NOT_FOUND", message: "ルームが見つかりません" },
+        },
         { status: 404 }
       );
     }
 
     // ホスト確認
     const { data: host } = await supabase
-      .from('players')
-      .select('*')
-      .eq('room_id', room.id)
-      .eq('session_id', sessionId)
-      .eq('is_host', true)
+      .from("players")
+      .select("*")
+      .eq("room_id", room.id)
+      .eq("session_id", sessionId)
+      .eq("is_host", true)
       .single();
 
     if (!host) {
       return NextResponse.json(
-        { error: { code: 'FORBIDDEN', message: 'ホストのみ実行できます' } },
+        { error: { code: "FORBIDDEN", message: "ホストのみ実行できます" } },
         { status: 403 }
       );
     }
 
     // 待機中のみ追加可能
-    if (room.status !== 'waiting') {
+    if (room.status !== "waiting") {
       return NextResponse.json(
-        { error: { code: 'INVALID_STATUS', message: '待機中のみBOTを追加できます' } },
+        {
+          error: {
+            code: "INVALID_STATUS",
+            message: "待機中のみBOTを追加できます",
+          },
+        },
         { status: 400 }
       );
     }
 
     // 現在のプレイヤー数を確認
     const { data: players } = await supabase
-      .from('players')
-      .select('position')
-      .eq('room_id', room.id)
-      .order('position', { ascending: true });
+      .from("players")
+      .select("position")
+      .eq("room_id", room.id);
 
-    if (!players || players.length >= 5) {
-      return NextResponse.json(
-        { error: { code: 'ROOM_FULL', message: 'ルームが満員です' } },
-        { status: 400 }
-      );
+    const currentCount = players?.length || 0;
+    const needed = 5 - currentCount;
+
+    if (needed <= 0) {
+      return NextResponse.json({ success: true, added: 0 });
     }
 
-    // 空いているポジションを探す
-    const usedPositions = new Set(players.map(p => p.position));
-    let nextPosition = 1;
+    const usedPositions = (players || [])
+      .map((p: { position: number | null }) => p.position)
+      .filter(Boolean) as number[];
+
+    const availablePositions: number[] = [];
     for (let i = 1; i <= 5; i++) {
-      if (!usedPositions.has(i)) {
-        nextPosition = i;
-        break;
-      }
+      if (!usedPositions.includes(i)) availablePositions.push(i);
     }
 
-    // BOTプレイヤーを挿入
-    const { error: insertError } = await supabase
-      .from('players')
-      .insert({
+    const inserts = [];
+    for (let i = 0; i < needed; i++) {
+      inserts.push({
         room_id: room.id,
-        nickname: 'BOT',
+        nickname: BOT_NAMES[i] || `BOT${i + 1}`,
         session_id: `bot-${crypto.randomUUID()}`,
         is_host: false,
-        position: nextPosition,
+        position: availablePositions[i],
       });
+    }
 
+    const { error: insertError } = await supabase
+      .from("players")
+      .insert(inserts);
     if (insertError) throw insertError;
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, added: needed });
   } catch (error) {
-    console.error('Add bot error:', error);
+    console.error("Add bot error:", error);
     return NextResponse.json(
-      { error: { code: 'INTERNAL_ERROR', message: 'サーバーエラーが発生しました' } },
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "サーバーエラーが発生しました",
+        },
+      },
       { status: 500 }
     );
   }

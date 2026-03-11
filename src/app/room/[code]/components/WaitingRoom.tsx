@@ -229,33 +229,34 @@ export function WaitingRoom({ room, players, currentPlayer, isHost, roomCode }: 
         </div>
 
         {isHost && (
-          <div className="mt-3 flex items-center justify-between">
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              ※ ドラッグで順番を変更できます
-            </p>
-            {players.length < 5 && (
-              <button
-                onClick={async () => {
-                  setAddingBot(true);
-                  setError('');
-                  try {
-                    await api.addBot(roomCode);
-                  } catch (err: unknown) {
-                    const apiErr = err as { error?: { message?: string } };
-                    setError(apiErr?.error?.message || 'BOT追加に失敗しました');
-                  } finally {
-                    setAddingBot(false);
-                  }
-                }}
-                disabled={addingBot}
-                className="btn-canvas px-3 py-1.5 text-xs cursor-pointer"
-              >
-                {addingBot ? '追加中...' : '+ BOT追加'}
-              </button>
-            )}
-          </div>
+          <p className="text-xs mt-3" style={{ color: 'var(--color-text-muted)' }}>
+            ※ ドラッグで順番を変更できます
+          </p>
         )}
       </div>
+
+      {/* BOT追加 */}
+      {isHost && players.length < 5 && (
+        <button
+          onClick={async () => {
+            setAddingBot(true);
+            setError('');
+            try {
+              await api.addBot(roomCode);
+            } catch (err: unknown) {
+              const apiErr = err as { error?: { message?: string } };
+              setError(apiErr?.error?.message || 'BOT追加に失敗しました');
+            } finally {
+              setAddingBot(false);
+            }
+          }}
+          disabled={addingBot}
+          className="w-full py-3 font-bold rounded-xl transition-colors disabled:opacity-50 text-sm cursor-pointer"
+          style={{ background: '#7C3AED', color: 'white' }}
+        >
+          {addingBot ? '追加中...' : `BOTを追加 (残り${5 - players.length}人)`}
+        </button>
+      )}
 
       {/* ゲーム開始 */}
       {error && (
