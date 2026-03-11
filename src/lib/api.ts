@@ -133,6 +133,14 @@ export const api = {
     );
   },
 
+  // BOT追加
+  addBot(code: string) {
+    return request<{ success: boolean }>(`/rooms/${code}/add-bot`, {
+      method: 'POST',
+      body: JSON.stringify({ sessionId: getSessionId() }),
+    });
+  },
+
   // プレイヤーキック（BOT置換）
   kickPlayer(code: string, targetPlayerId: string) {
     return request<{ success: boolean }>(`/rooms/${code}/kick`, {

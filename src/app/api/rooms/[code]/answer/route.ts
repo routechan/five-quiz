@@ -85,7 +85,7 @@ export async function POST(
         .eq('room_id', room.id);
 
       const dummyPlayers = (allPlayers || []).filter(
-        (p: { session_id: string }) => p.session_id.startsWith('dev-dummy-')
+        (p: { session_id: string }) => p.session_id.startsWith('dev-dummy-') || p.session_id.startsWith('bot-')
       );
 
       if (dummyPlayers.length > 0) {

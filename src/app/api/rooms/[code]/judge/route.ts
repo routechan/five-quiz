@@ -58,7 +58,7 @@ export async function PATCH(
         .eq('room_id', room.id);
 
       const dummyIds = (allPlayers || [])
-        .filter((p: { session_id: string }) => p.session_id.startsWith('dev-dummy-'))
+        .filter((p: { session_id: string }) => p.session_id.startsWith('dev-dummy-') || p.session_id.startsWith('bot-'))
         .map((p: { id: string }) => p.id);
 
       if (dummyIds.length > 0) {
