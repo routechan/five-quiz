@@ -9,7 +9,7 @@ interface Props {
 
 export function DrawingCanvas({ onSubmit, disabled = false }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
+  const isDrawingRef = useRef(false);
   const [hasDrawn, setHasDrawn] = useState(false);
 
   useEffect(() => {
@@ -37,27 +37,71 @@ export function DrawingCanvas({ onSubmit, disabled = false }: Props) {
     ctx.lineJoin = 'round';
   }, []);
 
+  // Safari対策: ネイティブイベントリスナーを { passive: false } で登録
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const getPos = (e: TouchEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: e.touches[0].clientX - rect.left,
+        y: e.touches[0].clientY - rect.top,
+      };
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (disabled) return;
+      e.preventDefault();
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const { x, y } = getPos(e);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      isDrawingRef.current = true;
+      setHasDrawn(true);
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!isDrawingRef.current || disabled) return;
+      e.preventDefault();
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const { x, y } = getPos(e);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      e.preventDefault();
+      isDrawingRef.current = false;
+    };
+
+    canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+    canvas.addEventListener('touchend', onTouchEnd, { passive: false });
+
+    return () => {
+      canvas.removeEventListener('touchstart', onTouchStart);
+      canvas.removeEventListener('touchmove', onTouchMove);
+      canvas.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [disabled]);
+
   const getCoordinates = useCallback(
-    (e: React.TouchEvent | React.MouseEvent) => {
+    (e: React.MouseEvent) => {
       const canvas = canvasRef.current!;
       const rect = canvas.getBoundingClientRect();
-
-      if ('touches' in e) {
-        return {
-          x: e.touches[0].clientX - rect.left,
-          y: e.touches[0].clientY - rect.top,
-        };
-      }
       return {
-        x: (e as React.MouseEvent).clientX - rect.left,
-        y: (e as React.MouseEvent).clientY - rect.top,
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
       };
     },
     []
   );
 
   const startDrawing = useCallback(
-    (e: React.TouchEvent | React.MouseEvent) => {
+    (e: React.MouseEvent) => {
       if (disabled) return;
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext('2d');
@@ -66,15 +110,15 @@ export function DrawingCanvas({ onSubmit, disabled = false }: Props) {
       const { x, y } = getCoordinates(e);
       ctx.beginPath();
       ctx.moveTo(x, y);
-      setIsDrawing(true);
+      isDrawingRef.current = true;
       setHasDrawn(true);
     },
     [disabled, getCoordinates]
   );
 
   const draw = useCallback(
-    (e: React.TouchEvent | React.MouseEvent) => {
-      if (!isDrawing || disabled) return;
+    (e: React.MouseEvent) => {
+      if (!isDrawingRef.current || disabled) return;
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext('2d');
       if (!ctx) return;
@@ -83,11 +127,11 @@ export function DrawingCanvas({ onSubmit, disabled = false }: Props) {
       ctx.lineTo(x, y);
       ctx.stroke();
     },
-    [isDrawing, disabled, getCoordinates]
+    [disabled, getCoordinates]
   );
 
   const stopDrawing = useCallback(() => {
-    setIsDrawing(false);
+    isDrawingRef.current = false;
   }, []);
 
   const handleClear = useCallback(() => {
@@ -133,9 +177,6 @@ export function DrawingCanvas({ onSubmit, disabled = false }: Props) {
           onMouseMove={draw}
           onMouseUp={stopDrawing}
           onMouseLeave={stopDrawing}
-          onTouchStart={startDrawing}
-          onTouchMove={draw}
-          onTouchEnd={stopDrawing}
         />
       </div>
       <div className="flex gap-4">
