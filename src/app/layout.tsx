@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Dela_Gothic_One, M_PLUS_Rounded_1c } from "next/font/google";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 
 const delaGothicOne = Dela_Gothic_One({
@@ -69,6 +70,7 @@ export default function RootLayout({
         }}
       >
         {children}
+        <GoogleAnalytics gaId="G-5D22VTL7QW" />
       </body>
     </html>
   );
