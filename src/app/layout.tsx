@@ -41,6 +41,10 @@ export const metadata: Metadata = {
       "5人協力型クイズゲーム。5人のプレイヤーがそれぞれ1文字ずつ担当し、チームで5文字の回答を完成させよう！",
     images: ["/og-image.png"],
   },
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
