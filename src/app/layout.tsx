@@ -54,6 +54,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}`,
+          }}
+        />
+      </head>
       <body
         className={`${delaGothicOne.variable} ${mPlusRounded.variable} antialiased bg-white`}
         style={{
