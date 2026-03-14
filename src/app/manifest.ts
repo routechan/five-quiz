@@ -27,13 +27,13 @@ export default function manifest(): MetadataRoute.Manifest {
     screenshots: [
       {
         src: "/og-image.png",
-        sizes: "1200x630",
+        sizes: "1296x637",
         type: "image/png",
         form_factor: "wide",
       },
       {
         src: "/og-image.png",
-        sizes: "1200x630",
+        sizes: "1296x637",
         type: "image/png",
       },
     ],
