@@ -77,6 +77,7 @@ export default function NicknamePage() {
               style={{
                 border: '3px solid var(--color-secondary)',
                 color: 'var(--color-text-primary)',
+                caretColor: 'var(--color-text-primary)',
                 background: 'var(--color-bg-card)',
               }}
               onFocus={(e) => e.target.style.borderColor = 'var(--color-primary)'}
