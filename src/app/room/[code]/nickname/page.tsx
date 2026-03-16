@@ -12,6 +12,7 @@ export default function NicknamePage() {
   const [nickname, setNickname] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showSpectate, setShowSpectate] = useState(false);
 
   const handleJoin = async () => {
     if (!nickname.trim()) {
@@ -34,11 +35,36 @@ export default function NicknamePage() {
       const apiErr = err as { error?: { code?: string } };
       if (apiErr?.error?.code === 'ROOM_FULL') {
         setError('ルームが満員です');
+        setShowSpectate(true);
       } else if (apiErr?.error?.code === 'GAME_ALREADY_STARTED') {
         setError('ゲームは既に開始されています');
+        setShowSpectate(true);
       } else {
         setError('ルームへの参加に失敗しました');
       }
+      setLoading(false);
+    }
+  };
+
+  const handleSpectate = async () => {
+    if (!nickname.trim()) {
+      setError('ニックネームを入力してください');
+      return;
+    }
+    if (nickname.length > 10) {
+      setError('ニックネームは10文字以内で入力してください');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const { playerId } = await api.spectateRoom(code, nickname.trim());
+      sessionStorage.setItem('playerId', playerId);
+      router.push(`/room/${code}`);
+    } catch {
+      setError('観戦への参加に失敗しました');
       setLoading(false);
     }
   };
@@ -101,6 +127,21 @@ export default function NicknamePage() {
           >
             {loading ? '参加中...' : '入室する'}
           </button>
+
+          {showSpectate && (
+            <button
+              onClick={handleSpectate}
+              disabled={loading}
+              className="w-full py-3 px-8 text-lg font-bold rounded-xl transition-colors cursor-pointer"
+              style={{
+                background: 'var(--color-bg-card)',
+                color: 'var(--color-canvas)',
+                border: '3px solid var(--color-canvas)',
+              }}
+            >
+              {loading ? '参加中...' : '観戦する'}
+            </button>
+          )}
         </div>
       </div>
     </div>

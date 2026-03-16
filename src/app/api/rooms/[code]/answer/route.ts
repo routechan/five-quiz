@@ -131,7 +131,8 @@ export async function POST(
     const { count: playerCount } = await supabase
       .from('players')
       .select('*', { count: 'exact', head: true })
-      .eq('room_id', room.id);
+      .eq('room_id', room.id)
+      .eq('is_spectator', false);
 
     // 全員提出完了 → answered状態へ（ホストが回答表示するまで待機）
     if (count === playerCount) {

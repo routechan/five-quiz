@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabase } from '@/lib/supabase-server';
 
-// POST /api/rooms/[code]/join - ルーム参加
+// POST /api/rooms/[code]/spectate - 観戦者として参加
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ code: string }> }
@@ -33,14 +33,7 @@ export async function POST(
       );
     }
 
-    if (room.status !== 'waiting') {
-      return NextResponse.json(
-        { error: { code: 'GAME_ALREADY_STARTED', message: 'ゲームは既に開始されています' } },
-        { status: 409 }
-      );
-    }
-
-    // 既存プレイヤー確認
+    // 既存プレイヤー確認（既に参加済みならそのまま返す）
     const { data: existingPlayer } = await supabase
       .from('players')
       .select('*')
@@ -52,39 +45,11 @@ export async function POST(
       return NextResponse.json({
         roomId: room.id,
         playerId: existingPlayer.id,
+        isSpectator: existingPlayer.is_spectator,
       });
     }
 
-    // 参加人数確認（観戦者を除く）
-    const { count } = await supabase
-      .from('players')
-      .select('*', { count: 'exact', head: true })
-      .eq('room_id', room.id)
-      .eq('is_spectator', false);
-
-    if ((count || 0) >= 5) {
-      return NextResponse.json(
-        { error: { code: 'ROOM_FULL', message: 'ルームが満員です（観戦モードで参加できます）' } },
-        { status: 409 }
-      );
-    }
-
-    // 次の空きポジション
-    const { data: players } = await supabase
-      .from('players')
-      .select('position')
-      .eq('room_id', room.id);
-
-    const usedPositions = (players || []).map((p: { position: number | null }) => p.position).filter(Boolean);
-    let nextPosition = 1;
-    for (let i = 1; i <= 5; i++) {
-      if (!usedPositions.includes(i)) {
-        nextPosition = i;
-        break;
-      }
-    }
-
-    // プレイヤー作成
+    // 観戦者として作成（position なし、is_spectator = true）
     const { data: player, error } = await supabase
       .from('players')
       .insert({
@@ -92,7 +57,8 @@ export async function POST(
         nickname,
         session_id: sessionId,
         is_host: false,
-        position: nextPosition,
+        is_spectator: true,
+        position: null,
       })
       .select()
       .single();
@@ -102,9 +68,10 @@ export async function POST(
     return NextResponse.json({
       roomId: room.id,
       playerId: player.id,
+      isSpectator: true,
     });
   } catch (error) {
-    console.error('Join room error:', error);
+    console.error('Spectate room error:', error);
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'サーバーエラーが発生しました' } },
       { status: 500 }

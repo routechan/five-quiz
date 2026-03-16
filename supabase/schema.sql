@@ -30,6 +30,7 @@ CREATE TABLE players (
   position INTEGER CHECK (position >= 1 AND position <= 5),
   session_id VARCHAR(255) NOT NULL,
   is_host BOOLEAN NOT NULL DEFAULT false,
+  is_spectator BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (room_id, session_id)
 );

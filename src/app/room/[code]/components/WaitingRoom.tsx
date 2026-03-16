@@ -8,12 +8,13 @@ import type { Room, Player } from '@/types';
 interface Props {
   room: Room;
   players: Player[];
+  spectators?: Player[];
   currentPlayer: Player;
   isHost: boolean;
   roomCode: string;
 }
 
-export function WaitingRoom({ room, players, currentPlayer, isHost, roomCode }: Props) {
+export function WaitingRoom({ room, players, spectators = [], currentPlayer, isHost, roomCode }: Props) {
   const [starting, setStarting] = useState(false);
   const [addingBot, setAddingBot] = useState(false);
   const [error, setError] = useState('');
@@ -256,6 +257,18 @@ export function WaitingRoom({ room, players, currentPlayer, isHost, roomCode }: 
         >
           {addingBot ? '追加中...' : `BOTを追加 (残り${5 - players.length}人)`}
         </button>
+      )}
+
+      {/* 観戦者 */}
+      {spectators.length > 0 && (
+        <div className="text-center py-2">
+          <span
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold"
+            style={{ background: 'var(--color-bg-card)', border: '2px solid var(--color-canvas)', color: 'var(--color-canvas)' }}
+          >
+            観戦者: {spectators.length}人
+          </span>
+        </div>
       )}
 
       {/* ゲーム開始 */}

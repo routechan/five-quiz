@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { api } from '@/lib/api';
 import type { Room, Player, Answer } from '@/types';
@@ -13,6 +13,9 @@ interface RoomState {
   loading: boolean;
   error: string | null;
 }
+
+const POLL_INTERVAL = 5000; // 5秒ごとのフォールバックポーリング
+const DEBOUNCE_MS = 300; // fetchRoom のデバウンス間隔
 
 export function useRoom(roomCode: string) {
   const [state, setState] = useState<RoomState>({
@@ -27,7 +30,10 @@ export function useRoom(roomCode: string) {
   const roomCodeRef = useRef(roomCode);
   roomCodeRef.current = roomCode;
 
-  const fetchRoom = async () => {
+  // デバウンス用タイマー
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchRoom = useCallback(async () => {
     try {
       const data = await api.getRoom(roomCodeRef.current);
       setState({
@@ -45,71 +51,107 @@ export function useRoom(roomCode: string) {
         error: 'ルーム情報の取得に失敗しました',
       }));
     }
-  };
+  }, []);
 
   const fetchRoomRef = useRef(fetchRoom);
   fetchRoomRef.current = fetchRoom;
 
+  // リアルタイムイベント用のデバウンス付き fetchRoom
+  const debouncedFetchRoom = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      fetchRoomRef.current();
+    }, DEBOUNCE_MS);
+  }, []);
+
+  // 初回データ取得
   useEffect(() => {
     fetchRoomRef.current();
   }, [roomCode]);
 
   // Supabase Realtime 購読
+  // room_code ベースで rooms テーブルを即座に監視開始し、
+  // room.id 取得後に players/answers の購読を追加
   useEffect(() => {
-    if (!state.room?.id) return;
+    const roomId = state.room?.id;
+    const channelName = roomId
+      ? `room:${roomCode}:${roomId}`
+      : `room:${roomCode}`;
 
-    const roomId = state.room.id;
-    const channel = supabase.channel(`room:${roomCode}`);
+    // 前のチャンネルをクリーンアップ
+    if (channelRef.current) {
+      channelRef.current.unsubscribe();
+    }
 
-    // rooms テーブルの変更
+    const channel = supabase.channel(channelName);
+
+    // rooms テーブルの変更（room_code でフィルター）
     channel.on(
       'postgres_changes',
       {
         event: 'UPDATE',
         schema: 'public',
         table: 'rooms',
-        filter: `id=eq.${roomId}`,
+        filter: `room_code=eq.${roomCode}`,
       },
       () => {
-        fetchRoomRef.current();
+        debouncedFetchRoom();
       }
     );
 
-    // players テーブルの変更
-    channel.on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'players',
-        filter: `room_id=eq.${roomId}`,
-      },
-      () => {
-        fetchRoomRef.current();
-      }
-    );
+    // room.id が取得できたら players/answers も購読
+    if (roomId) {
+      // players テーブルの変更
+      channel.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'players',
+          filter: `room_id=eq.${roomId}`,
+        },
+        () => {
+          debouncedFetchRoom();
+        }
+      );
 
-    // answers テーブルの変更
-    channel.on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'answers',
-        filter: `room_id=eq.${roomId}`,
-      },
-      () => {
-        fetchRoomRef.current();
-      }
-    );
+      // answers テーブルの変更
+      channel.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'answers',
+          filter: `room_id=eq.${roomId}`,
+        },
+        () => {
+          debouncedFetchRoom();
+        }
+      );
+    }
 
     channel.subscribe();
     channelRef.current = channel;
 
     return () => {
       channel.unsubscribe();
+      channelRef.current = null;
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
     };
-  }, [state.room?.id, roomCode]);
+  }, [roomCode, state.room?.id, debouncedFetchRoom]);
+
+  // フォールバックポーリング（リアルタイム接続が切れた場合の保険）
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchRoomRef.current();
+    }, POLL_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, [roomCode]);
 
   return {
     ...state,

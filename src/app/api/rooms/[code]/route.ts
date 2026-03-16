@@ -76,6 +76,7 @@ export async function GET(
         nickname: p.nickname,
         position: p.position,
         isHost: p.is_host,
+        isSpectator: p.is_spectator ?? false,
       })),
       answers: (answers as Record<string, unknown>[]).map((a) => ({
         id: a.id,

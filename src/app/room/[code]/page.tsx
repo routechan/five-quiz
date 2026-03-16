@@ -9,6 +9,7 @@ import { AnswerInput } from './components/AnswerInput';
 import { WaitingAnswer } from './components/WaitingAnswer';
 import { ResultDisplay } from './components/ResultDisplay';
 import { GameEnd } from './components/GameEnd';
+import { SpectatorView } from './components/SpectatorView';
 
 export default function RoomPage() {
   const params = useParams();
@@ -24,6 +25,7 @@ export default function RoomPage() {
   });
 
   const isHost = currentPlayer?.isHost ?? false;
+  const isSpectator = currentPlayer?.isSpectator ?? false;
 
   // 未参加ならニックネーム入力へ
   useEffect(() => {
@@ -67,8 +69,37 @@ export default function RoomPage() {
     );
   }
 
+  // プレイヤー一覧から観戦者を除外（ゲームロジック用）
+  const activePlayers = players.filter((p) => !p.isSpectator);
+  const spectators = players.filter((p) => p.isSpectator);
+
   // 自分が既に回答提出済みか
   const hasSubmitted = answers.some((a) => a.playerId === currentPlayer?.id);
+
+  // 観戦者用の画面
+  if (isSpectator) {
+    return (
+      <div className="min-h-screen bg-white">
+        <div className="text-center pt-6 pb-2">
+          <span
+            className="text-2xl"
+            style={{ color: 'var(--color-primary)', fontFamily: 'var(--font-quiz-title)' }}
+          >
+            ファイブクイズ
+          </span>
+        </div>
+        <main className="max-w-2xl mx-auto px-4 py-4">
+          <SpectatorView
+            room={room}
+            players={activePlayers}
+            spectators={spectators}
+            answers={answers}
+            currentQuiz={currentQuiz}
+          />
+        </main>
+      </div>
+    );
+  }
 
   // 画面の切り替え
   const renderContent = () => {
@@ -77,7 +108,8 @@ export default function RoomPage() {
         return (
           <WaitingRoom
             room={room}
-            players={players}
+            players={activePlayers}
+            spectators={spectators}
             currentPlayer={currentPlayer!}
             isHost={isHost}
             roomCode={code}
@@ -88,7 +120,7 @@ export default function RoomPage() {
         return (
           <AnswerInput
             room={room}
-            players={players}
+            players={activePlayers}
             currentPlayer={currentPlayer!}
             currentQuiz={currentQuiz!}
             roomCode={code}
@@ -99,7 +131,7 @@ export default function RoomPage() {
         if (hasSubmitted) {
           return (
             <WaitingAnswer
-              players={players}
+              players={activePlayers}
               answers={answers}
               isHost={isHost}
               roomCode={code}
@@ -110,7 +142,7 @@ export default function RoomPage() {
         return (
           <AnswerInput
             room={room}
-            players={players}
+            players={activePlayers}
             currentPlayer={currentPlayer!}
             currentQuiz={currentQuiz!}
             roomCode={code}
@@ -120,7 +152,7 @@ export default function RoomPage() {
       case 'answered':
         return (
           <WaitingAnswer
-            players={players}
+            players={activePlayers}
             answers={answers}
             isHost={isHost}
             roomCode={code}
@@ -132,7 +164,7 @@ export default function RoomPage() {
         return (
           <ResultDisplay
             room={room}
-            players={players}
+            players={activePlayers}
             answers={answers}
             currentPlayer={currentPlayer!}
             currentQuiz={currentQuiz!}

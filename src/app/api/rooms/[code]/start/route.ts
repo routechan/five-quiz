@@ -41,11 +41,12 @@ export async function POST(
       );
     }
 
-    // 5人確認
+    // 5人確認（観戦者を除く）
     const { data: players } = await supabase
       .from('players')
       .select('*')
-      .eq('room_id', room.id);
+      .eq('room_id', room.id)
+      .eq('is_spectator', false);
 
     if (!players || players.length < 5) {
       return NextResponse.json(

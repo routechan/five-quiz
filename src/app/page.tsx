@@ -331,10 +331,31 @@ export default function TopPage() {
         </div>
       </div>
 
+      {/* 利用について */}
+      <div className="max-w-md sm:max-w-xl lg:max-w-2xl w-full relative z-10 mb-12">
+        <div className="quiz-card p-6 space-y-3">
+          <h2
+            className="text-xl font-extrabold text-center"
+            style={{
+              color: "var(--color-primary)",
+              fontFamily: "var(--font-quiz-title)",
+            }}
+          >
+            ご利用について
+          </h2>
+          <p
+            className="text-sm leading-relaxed text-center"
+            style={{ color: "var(--color-text-secondary)" }}
+          >
+            動画配信・実況・商用利用など、どなたでもご自由にお使いいただけます。
+            <br />
+            事前の許可や連絡は不要です。ぜひお楽しみください！
+          </p>
+        </div>
+      </div>
+
       {/* フッター */}
-      <footer
-        className="w-full py-6 mt-auto relative z-10 text-center"
-      >
+      <footer className="w-full py-6 mt-auto relative z-10 text-center">
         <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
           &copy; ファイブクイズ
         </p>

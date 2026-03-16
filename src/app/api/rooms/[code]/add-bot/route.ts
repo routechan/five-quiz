@@ -58,11 +58,12 @@ export async function POST(
       );
     }
 
-    // 現在のプレイヤー数を確認
+    // 現在のプレイヤー数を確認（観戦者を除く）
     const { data: players } = await supabase
       .from("players")
       .select("position")
-      .eq("room_id", room.id);
+      .eq("room_id", room.id)
+      .eq("is_spectator", false);
 
     const currentCount = players?.length || 0;
     const needed = 5 - currentCount;

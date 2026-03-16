@@ -59,6 +59,17 @@ export const api = {
     );
   },
 
+  // 観戦参加
+  spectateRoom(code: string, nickname: string) {
+    return request<{ roomId: string; playerId: string; isSpectator: boolean }>(
+      `/rooms/${code}/spectate`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ nickname, sessionId: getSessionId() }),
+      }
+    );
+  },
+
   // ルーム退出
   leaveRoom(code: string) {
     return request<{ success: boolean; roomClosed: boolean }>(
