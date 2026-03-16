@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import Link from "next/link";
 import { api } from "@/lib/api";
 
 export default function TopPage() {
@@ -355,7 +356,23 @@ export default function TopPage() {
       </div>
 
       {/* フッター */}
-      <footer className="w-full py-6 mt-auto relative z-10 text-center">
+      <footer className="w-full py-6 mt-auto relative z-10 text-center space-y-2">
+        <div className="flex justify-center gap-4">
+          <Link
+            href="/privacy"
+            className="text-xs hover:underline"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            プライバシーポリシー
+          </Link>
+          <Link
+            href="/terms"
+            className="text-xs hover:underline"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            利用規約
+          </Link>
+        </div>
         <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
           &copy; ファイブクイズ
         </p>
