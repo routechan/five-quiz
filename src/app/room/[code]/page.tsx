@@ -16,7 +16,7 @@ export default function RoomPage() {
   const router = useRouter();
   const code = params.code as string;
   const sessionId = useSession();
-  const { room, players, answers, currentQuiz, loading, error } = useRoom(code);
+  const { room, players, answers, currentQuiz, loading, error, refetch } = useRoom(code);
 
   // 現在のプレイヤー
   const currentPlayer = players.find((p) => {
@@ -113,6 +113,7 @@ export default function RoomPage() {
             currentPlayer={currentPlayer!}
             isHost={isHost}
             roomCode={code}
+            onRefetch={refetch}
           />
         );
 

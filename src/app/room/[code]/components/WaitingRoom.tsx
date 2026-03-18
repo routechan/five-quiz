@@ -12,9 +12,10 @@ interface Props {
   currentPlayer: Player;
   isHost: boolean;
   roomCode: string;
+  onRefetch?: () => void;
 }
 
-export function WaitingRoom({ room, players, spectators = [], currentPlayer, isHost, roomCode }: Props) {
+export function WaitingRoom({ room, players, spectators = [], currentPlayer, isHost, roomCode, onRefetch }: Props) {
   const [starting, setStarting] = useState(false);
   const [addingBot, setAddingBot] = useState(false);
   const [kickingId, setKickingId] = useState<string | null>(null);
@@ -51,6 +52,7 @@ export function WaitingRoom({ room, players, spectators = [], currentPlayer, isH
     setKickingId(playerId);
     try {
       await api.kickPlayer(roomCode, playerId);
+      onRefetch?.();
     } catch {
       // エラー時はリセット
     } finally {
