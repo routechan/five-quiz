@@ -31,12 +31,15 @@ export async function GET(
       .eq('room_id', room.id)
       .order('position', { ascending: true, nullsFirst: false });
 
-    // 現在のクイズの回答取得
+    // 現在のクイズの回答取得（judging以外ではdrawing_dataを除外して転送量を削減）
     let answers: unknown[] = [];
     if (room.current_quiz_id) {
+      const answerColumns = room.status === 'judging'
+        ? 'id, room_id, quiz_id, player_id, drawing_data, is_correct'
+        : 'id, room_id, quiz_id, player_id, is_correct';
       const { data: answerData } = await supabase
         .from('answers')
-        .select('*')
+        .select(answerColumns)
         .eq('room_id', room.id)
         .eq('quiz_id', room.current_quiz_id);
       answers = answerData || [];
@@ -76,6 +79,7 @@ export async function GET(
         nickname: p.nickname,
         position: p.position,
         isHost: p.is_host,
+        isBot: p.is_bot ?? false,
         isSpectator: p.is_spectator ?? false,
       })),
       answers: (answers as Record<string, unknown>[]).map((a) => ({
@@ -83,7 +87,7 @@ export async function GET(
         roomId: a.room_id,
         quizId: a.quiz_id,
         playerId: a.player_id,
-        drawingData: a.drawing_data,
+        ...(a.drawing_data !== undefined ? { drawingData: a.drawing_data } : {}),
         isCorrect: a.is_correct,
       })),
       currentQuiz,

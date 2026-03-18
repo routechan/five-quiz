@@ -29,6 +29,7 @@ export function useRoom(roomCode: string) {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const roomCodeRef = useRef(roomCode);
   roomCodeRef.current = roomCode;
+  const realtimeConnectedRef = useRef(false);
 
   // デバウンス用タイマー
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -132,22 +133,27 @@ export function useRoom(roomCode: string) {
       );
     }
 
-    channel.subscribe();
+    channel.subscribe((status) => {
+      realtimeConnectedRef.current = status === 'SUBSCRIBED';
+    });
     channelRef.current = channel;
 
     return () => {
       channel.unsubscribe();
       channelRef.current = null;
+      realtimeConnectedRef.current = false;
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
     };
   }, [roomCode, state.room?.id, debouncedFetchRoom]);
 
-  // フォールバックポーリング（リアルタイム接続が切れた場合の保険）
+  // フォールバックポーリング（リアルタイム未接続時のみ実行）
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchRoomRef.current();
+      if (!realtimeConnectedRef.current) {
+        fetchRoomRef.current();
+      }
     }, POLL_INTERVAL);
 
     return () => clearInterval(interval);
