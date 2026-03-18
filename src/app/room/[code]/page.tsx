@@ -197,6 +197,22 @@ export default function RoomPage() {
       <main className="max-w-2xl mx-auto px-4 py-4">
         {renderContent()}
       </main>
+
+      {/* 観戦者数（常時表示） */}
+      {spectators.length > 0 && room.status !== 'waiting' && (
+        <div className="text-center py-2">
+          <span
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold"
+            style={{
+              background: 'var(--color-bg-card)',
+              border: '2px solid var(--color-canvas)',
+              color: 'var(--color-canvas)',
+            }}
+          >
+            観戦者: {spectators.length}人
+          </span>
+        </div>
+      )}
     </div>
   );
 }

@@ -43,11 +43,7 @@ export function WaitingAnswer({ players, answers, isHost, roomCode, allSubmitted
     }
   };
 
-  // BOTかどうかを判定（nickname が "BOT" またはダミー名のプレイヤー）
-  const isDummyPlayer = (player: Player) => {
-    const dummyNames = ['BOT', 'ジュン', 'タイゾウ', 'ケン', 'オサム'];
-    return dummyNames.includes(player.nickname);
-  };
+
 
   return (
     <div className="space-y-6 text-center animate-float-in">
@@ -62,7 +58,7 @@ export function WaitingAnswer({ players, answers, isHost, roomCode, allSubmitted
       <div className="flex justify-center gap-3 sm:gap-4">
         {sortedPlayers.map((player) => {
           const hasSubmitted = submittedIds.has(player.id);
-          const canKick = isHost && !hasSubmitted && !isDummyPlayer(player) && !player.isHost;
+          const canKick = isHost && !hasSubmitted && !player.isBot && !player.isHost;
           return (
             <div key={player.id} className="flex flex-col items-center gap-1">
               <div

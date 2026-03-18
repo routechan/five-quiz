@@ -88,6 +88,7 @@ export async function POST(
         nickname: BOT_NAMES[i] || `BOT${i + 1}`,
         session_id: `bot-${crypto.randomUUID()}`,
         is_host: false,
+        is_bot: true,
         position: availablePositions[i],
       });
     }

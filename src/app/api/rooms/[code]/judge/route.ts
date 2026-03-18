@@ -54,11 +54,11 @@ export async function PATCH(
     {
       const { data: allPlayers } = await supabase
         .from('players')
-        .select('id, session_id')
+        .select('id, is_bot')
         .eq('room_id', room.id);
 
       const dummyIds = (allPlayers || [])
-        .filter((p: { session_id: string }) => p.session_id.startsWith('dev-dummy-') || p.session_id.startsWith('bot-'))
+        .filter((p: { is_bot: boolean }) => p.is_bot)
         .map((p: { id: string }) => p.id);
 
       if (dummyIds.length > 0) {

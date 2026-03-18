@@ -17,6 +17,7 @@ interface Props {
 export function WaitingRoom({ room, players, spectators = [], currentPlayer, isHost, roomCode }: Props) {
   const [starting, setStarting] = useState(false);
   const [addingBot, setAddingBot] = useState(false);
+  const [kickingId, setKickingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
 
@@ -42,6 +43,18 @@ export function WaitingRoom({ room, players, spectators = [], currentPlayer, isH
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // fallback
+    }
+  };
+
+  const handleKick = async (playerId: string) => {
+    if (!confirm('このプレイヤーをキックしますか？')) return;
+    setKickingId(playerId);
+    try {
+      await api.kickPlayer(roomCode, playerId);
+    } catch {
+      // エラー時はリセット
+    } finally {
+      setKickingId(null);
     }
   };
 
@@ -212,6 +225,20 @@ export function WaitingRoom({ room, players, spectators = [], currentPlayer, isH
                 player={player}
                 isCurrentUser={player.id === currentPlayer.id}
               />
+              {isHost && !player.isHost && !player.isBot && player.id !== currentPlayer.id && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleKick(player.id); }}
+                  disabled={kickingId === player.id}
+                  className="text-xs px-2 py-1 rounded cursor-pointer flex-shrink-0"
+                  style={{
+                    background: 'var(--color-danger, #ef4444)',
+                    color: 'white',
+                    opacity: kickingId === player.id ? 0.5 : 1,
+                  }}
+                >
+                  {kickingId === player.id ? '...' : 'キック'}
+                </button>
+              )}
             </div>
           ))}
 

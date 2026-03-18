@@ -56,24 +56,33 @@ export async function POST(
     }
 
     // 参加人数確認（観戦者を除く）
-    const { count } = await supabase
+    const { data: currentPlayers } = await supabase
       .from('players')
-      .select('*', { count: 'exact', head: true })
+      .select('id, position, is_bot')
       .eq('room_id', room.id)
       .eq('is_spectator', false);
 
-    if ((count || 0) >= 5) {
-      return NextResponse.json(
-        { error: { code: 'ROOM_FULL', message: 'ルームが満員です（観戦モードで参加できます）' } },
-        { status: 409 }
-      );
+    const playerCount = currentPlayers?.length || 0;
+
+    // 満員かつBOTがいれば1体削除して空きを作る
+    if (playerCount >= 5) {
+      const bot = (currentPlayers || []).find((p: { is_bot: boolean }) => p.is_bot);
+      if (bot) {
+        await supabase.from('players').delete().eq('id', bot.id);
+      } else {
+        return NextResponse.json(
+          { error: { code: 'ROOM_FULL', message: 'ルームが満員です（観戦モードで参加できます）' } },
+          { status: 409 }
+        );
+      }
     }
 
-    // 次の空きポジション
+    // 次の空きポジション（BOT削除後の最新状態を再取得）
     const { data: players } = await supabase
       .from('players')
       .select('position')
-      .eq('room_id', room.id);
+      .eq('room_id', room.id)
+      .eq('is_spectator', false);
 
     const usedPositions = (players || []).map((p: { position: number | null }) => p.position).filter(Boolean);
     let nextPosition = 1;

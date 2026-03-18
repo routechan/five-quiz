@@ -75,6 +75,11 @@ export async function POST(
 
     if (deleteError) throw deleteError;
 
+    // 待機中はBOT置換不要（プレイヤー削除のみ）
+    if (room.status === 'waiting') {
+      return NextResponse.json({ success: true });
+    }
+
     // BOTプレイヤーを同じ position で挿入
     const { data: botPlayer, error: insertError } = await supabase
       .from('players')
@@ -83,6 +88,7 @@ export async function POST(
         nickname: 'BOT',
         session_id: `dev-dummy-${crypto.randomUUID()}`,
         is_host: false,
+        is_bot: true,
         position: targetPosition,
       })
       .select()
@@ -120,7 +126,8 @@ export async function POST(
       const { count: playerCount } = await supabase
         .from('players')
         .select('*', { count: 'exact', head: true })
-        .eq('room_id', room.id);
+        .eq('room_id', room.id)
+        .eq('is_spectator', false);
 
       if (answerCount === playerCount) {
         await supabase

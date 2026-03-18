@@ -21,6 +21,7 @@ export interface Player {
   nickname: string;
   position: number | null;
   isHost: boolean;
+  isBot: boolean;
   isSpectator: boolean;
 }
 
