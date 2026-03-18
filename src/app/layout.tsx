@@ -25,6 +25,7 @@ const siteUrl =
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
+  applicationName: "ファイブクイズ",
   title: "ファイブクイズ - 5人で挑む文字当てクイズ",
   description:
     "5人協力型クイズゲーム。5人のプレイヤーがそれぞれ1文字ずつ担当し、チームで5文字の回答を完成させよう！",
@@ -67,6 +68,17 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}`,
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "ファイブクイズ",
+              url: siteUrl,
+            }),
           }}
         />
       </head>
