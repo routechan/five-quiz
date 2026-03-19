@@ -26,6 +26,7 @@ export function ResultDisplay({
   roomCode,
 }: Props) {
   const [judging, setJudging] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [kickingId, setKickingId] = useState<string | null>(null);
   const { playCorrect, playIncorrect, playReveal } = useSound();
@@ -82,6 +83,8 @@ export function ResultDisplay({
   };
 
   const handleNext = async () => {
+    if (loading) return;
+    setLoading(true);
     try {
       await api.nextQuiz(roomCode);
     } catch (err: unknown) {
@@ -89,14 +92,20 @@ export function ResultDisplay({
       if (apiErr?.error?.code === 'NO_QUIZ_AVAILABLE') {
         setError('出題可能なクイズがありません');
       }
+      setLoading(false);
     }
   };
 
+  const [ending, setEnding] = useState(false);
+
   const handleEnd = async () => {
+    if (ending) return;
+    setEnding(true);
     try {
       await api.endGame(roomCode);
     } catch {
       setError('ゲーム終了に失敗しました');
+      setEnding(false);
     }
   };
 
@@ -257,15 +266,17 @@ export function ResultDisplay({
         <div className="flex gap-4">
           <button
             onClick={handleNext}
-            className="btn-canvas flex-1 py-3 text-lg cursor-pointer"
+            disabled={loading}
+            className="btn-canvas flex-1 py-3 text-lg cursor-pointer disabled:opacity-50"
           >
-            次の問題へ
+            {loading ? '読み込み中...' : '次の問題へ'}
           </button>
           <button
             onClick={handleEnd}
-            className="btn-secondary flex-1 py-3 text-lg cursor-pointer"
+            disabled={loading || ending}
+            className="btn-secondary flex-1 py-3 text-lg cursor-pointer disabled:opacity-50"
           >
-            ゲーム終了
+            {ending ? '終了中...' : 'ゲーム終了'}
           </button>
         </div>
       )}
