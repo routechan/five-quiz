@@ -14,7 +14,8 @@ interface RoomState {
   error: string | null;
 }
 
-const POLL_INTERVAL = 10000; // 10秒ごとのフォールバックポーリング
+const POLL_INTERVAL_WAITING = 5000; // 待機中: 5秒（入退室検知）
+const POLL_INTERVAL_PLAYING = 3000; // ゲーム中: 3秒（回答状態反映）
 const DEBOUNCE_MS = 1000; // fetchRoom のデバウンス間隔
 
 export function useRoom(roomCode: string) {
@@ -30,7 +31,6 @@ export function useRoom(roomCode: string) {
   const roomCodeRef = useRef(roomCode);
   roomCodeRef.current = roomCode;
   const realtimeConnectedRef = useRef(false);
-  const subscribedRoomIdRef = useRef<string | null>(null);
 
   // デバウンス用タイマー
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -79,27 +79,18 @@ export function useRoom(roomCode: string) {
     fetchRoomRef.current();
   }, [roomCode]);
 
-  // Supabase Realtime 購読
-  // room_code ベースで rooms テーブルを即座に監視開始し、
-  // room.id 取得後に players/answers の購読を追加
+  // Supabase Realtime 購読（rooms テーブルのみ監視 — コネクション節約）
+  // players/answers の変更は rooms.status の遷移で検知する。
+  // 待機中の入退室はポーリングで補完。
   useEffect(() => {
-    const roomId = state.room?.id ?? null;
-
-    // room.id が同じなら再購読しない（不要なチャンネル再作成を防止）
-    if (roomId && subscribedRoomIdRef.current === roomId) return;
-
-    const channelName = roomId
-      ? `room:${roomCode}:${roomId}`
-      : `room:${roomCode}`;
-
     // 前のチャンネルをクリーンアップ
     if (channelRef.current) {
       channelRef.current.unsubscribe();
     }
 
-    const channel = supabase.channel(channelName);
+    const channel = supabase.channel(`room:${roomCode}`);
 
-    // rooms テーブルの変更（room_code でフィルター）
+    // rooms テーブルの変更のみ監視（コネクション1本で済む）
     channel.on(
       'postgres_changes',
       {
@@ -113,64 +104,30 @@ export function useRoom(roomCode: string) {
       }
     );
 
-    // room.id が取得できたら players/answers も購読
-    if (roomId) {
-      // players テーブルの変更
-      channel.on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'players',
-          filter: `room_id=eq.${roomId}`,
-        },
-        () => {
-          debouncedFetchRoom();
-        }
-      );
-
-      // answers テーブルの変更
-      channel.on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'answers',
-          filter: `room_id=eq.${roomId}`,
-        },
-        () => {
-          debouncedFetchRoom();
-        }
-      );
-    }
-
     channel.subscribe((status) => {
       realtimeConnectedRef.current = status === 'SUBSCRIBED';
     });
     channelRef.current = channel;
-    subscribedRoomIdRef.current = roomId;
 
     return () => {
       channel.unsubscribe();
       channelRef.current = null;
-      subscribedRoomIdRef.current = null;
       realtimeConnectedRef.current = false;
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [roomCode, state.room?.id, debouncedFetchRoom]);
+  }, [roomCode, debouncedFetchRoom]);
 
-  // フォールバックポーリング（リアルタイム未接続時のみ実行）
+  // ポーリング（rooms のみ Realtime 監視のため、players/answers の変更を補完）
+  const pollInterval = state.room?.status === 'waiting' ? POLL_INTERVAL_WAITING : POLL_INTERVAL_PLAYING;
   useEffect(() => {
     const interval = setInterval(() => {
-      if (!realtimeConnectedRef.current) {
-        fetchRoomRef.current();
-      }
-    }, POLL_INTERVAL);
+      fetchRoomRef.current();
+    }, pollInterval);
 
     return () => clearInterval(interval);
-  }, [roomCode]);
+  }, [roomCode, pollInterval]);
 
   return {
     ...state,
