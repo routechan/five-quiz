@@ -40,13 +40,16 @@ export async function POST(
       );
     }
 
-    // 既存プレイヤー確認
-    const { data: existingPlayer } = await supabase
+    // プレイヤー全員取得（既存確認 + 人数確認 + position確認を1回で）
+    const { data: allPlayers } = await supabase
       .from('players')
-      .select('*')
-      .eq('room_id', room.id)
-      .eq('session_id', sessionId)
-      .single();
+      .select('id, session_id, position, is_bot, is_spectator')
+      .eq('room_id', room.id);
+
+    // 既存プレイヤー確認
+    const existingPlayer = (allPlayers || []).find(
+      (p: { session_id: string }) => p.session_id === sessionId
+    );
 
     if (existingPlayer) {
       return NextResponse.json({
@@ -56,17 +59,13 @@ export async function POST(
     }
 
     // 参加人数確認（観戦者を除く）
-    const { data: currentPlayers } = await supabase
-      .from('players')
-      .select('id, position, is_bot')
-      .eq('room_id', room.id)
-      .eq('is_spectator', false);
-
-    const playerCount = currentPlayers?.length || 0;
+    const activePlayers = (allPlayers || []).filter(
+      (p: { is_spectator: boolean }) => !p.is_spectator
+    );
 
     // 満員かつBOTがいれば1体削除して空きを作る
-    if (playerCount >= 5) {
-      const bot = (currentPlayers || []).find((p: { is_bot: boolean }) => p.is_bot);
+    if (activePlayers.length >= 5) {
+      const bot = activePlayers.find((p: { is_bot: boolean }) => p.is_bot);
       if (bot) {
         await supabase.from('players').delete().eq('id', bot.id);
       } else {
@@ -80,13 +79,19 @@ export async function POST(
     // 空きポジションを見つけてプレイヤー作成（競合時リトライ）
     let player = null;
     for (let attempt = 0; attempt < 3; attempt++) {
-      const { data: players } = await supabase
-        .from('players')
-        .select('position')
-        .eq('room_id', room.id)
-        .eq('is_spectator', false);
+      // 初回はメモリ上のデータを使い、リトライ時のみ再取得
+      let usedPositions: (number | null)[];
+      if (attempt === 0) {
+        usedPositions = activePlayers.map((p: { position: number | null }) => p.position);
+      } else {
+        const { data: retryPlayers } = await supabase
+          .from('players')
+          .select('position')
+          .eq('room_id', room.id)
+          .eq('is_spectator', false);
+        usedPositions = (retryPlayers || []).map((p: { position: number | null }) => p.position);
+      }
 
-      const usedPositions = (players || []).map((p: { position: number | null }) => p.position).filter(Boolean);
       let nextPosition = 1;
       for (let i = 1; i <= 5; i++) {
         if (!usedPositions.includes(i)) {
@@ -116,7 +121,6 @@ export async function POST(
       if (!error.message?.includes('idx_players_room_position')) {
         throw error;
       }
-      // 競合の場合はリトライ
     }
 
     if (!player) {
