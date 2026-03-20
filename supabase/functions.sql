@@ -1,4 +1,4 @@
--- ランダムクイズ取得（LEFT JOIN で未使用クイズを効率的に取得）
+-- ランダムクイズ取得（NOT EXISTS で未使用クイズを効率的に取得）
 CREATE OR REPLACE FUNCTION get_random_quiz(p_room_id UUID)
 RETURNS TABLE (id UUID, question TEXT, answer VARCHAR(5))
 LANGUAGE plpgsql
@@ -7,8 +7,10 @@ BEGIN
   RETURN QUERY
   SELECT q.id, q.question, q.answer
   FROM quizzes q
-  LEFT JOIN used_quizzes uq ON q.id = uq.quiz_id AND uq.room_id = p_room_id
-  WHERE uq.id IS NULL
+  WHERE NOT EXISTS (
+    SELECT 1 FROM used_quizzes uq
+    WHERE uq.quiz_id = q.id AND uq.room_id = p_room_id
+  )
   ORDER BY random()
   LIMIT 1;
 END;
@@ -53,17 +55,14 @@ BEGIN
 END;
 $$;
 
--- 古いルームの自動削除
+-- 古いルームの自動削除（1クエリに統合）
 CREATE OR REPLACE FUNCTION cleanup_old_rooms()
 RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
   DELETE FROM rooms
-  WHERE created_at < now() - interval '1 hour'
-    AND status = 'finished';
-
-  DELETE FROM rooms
-  WHERE created_at < now() - interval '3 hours';
+  WHERE (created_at < now() - interval '1 hour' AND status = 'finished')
+     OR (created_at < now() - interval '3 hours');
 END;
 $$;

@@ -67,10 +67,16 @@ CREATE TABLE used_quizzes (
   UNIQUE (room_id, quiz_id)
 );
 
--- Realtime を有効化
+-- used_quizzes の検索高速化（get_random_quiz の NOT EXISTS 用）
+CREATE INDEX idx_used_quizzes_room_quiz ON used_quizzes (room_id, quiz_id);
+
+-- rooms の検索高速化
+CREATE INDEX idx_rooms_room_code ON rooms (room_code);
+CREATE INDEX idx_rooms_created_at ON rooms (created_at);
+CREATE INDEX idx_rooms_status ON rooms (status);
+
+-- Realtime を有効化（rooms のみ — players/answers は不要）
 ALTER PUBLICATION supabase_realtime ADD TABLE rooms;
-ALTER PUBLICATION supabase_realtime ADD TABLE players;
-ALTER PUBLICATION supabase_realtime ADD TABLE answers;
 
 -- RLS 設定
 ALTER TABLE quizzes ENABLE ROW LEVEL SECURITY;

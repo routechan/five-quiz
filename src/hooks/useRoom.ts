@@ -14,9 +14,8 @@ interface RoomState {
   error: string | null;
 }
 
-const POLL_INTERVAL_WAITING = 8000; // 待機中: 8秒（入退室検知）
-const POLL_INTERVAL_PLAYING = 5000; // ゲーム中: 5秒（回答状態反映）
-const DEBOUNCE_MS = 1000; // fetchRoom のデバウンス間隔
+const POLL_INTERVAL = 30000; // フォールバックポーリング: 30秒（Realtime未接続時のみ）
+const DEBOUNCE_MS = 500; // fetchRoom のデバウンス間隔
 
 export function useRoom(roomCode: string) {
   const [state, setState] = useState<RoomState>({
@@ -119,15 +118,16 @@ export function useRoom(roomCode: string) {
     };
   }, [roomCode, debouncedFetchRoom]);
 
-  // ポーリング（rooms のみ Realtime 監視のため、players/answers の変更を補完）
-  const pollInterval = state.room?.status === 'waiting' ? POLL_INTERVAL_WAITING : POLL_INTERVAL_PLAYING;
+  // フォールバックポーリング（Realtime未検知の変更を補完）
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchRoomRef.current();
-    }, pollInterval);
+      if (!realtimeConnectedRef.current) {
+        fetchRoomRef.current();
+      }
+    }, POLL_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [roomCode, pollInterval]);
+  }, [roomCode]);
 
   return {
     ...state,

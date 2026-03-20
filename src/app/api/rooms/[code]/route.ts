@@ -10,10 +10,10 @@ export async function GET(
   const { code } = await params;
 
   try {
-    // ルーム取得
+    // ルーム + プレイヤーを1クエリで取得（ポーリング負荷軽減）
     const { data: room, error: roomError } = await supabase
       .from('rooms')
-      .select('*')
+      .select('*, players(*)')
       .eq('room_code', code)
       .single();
 
@@ -24,33 +24,37 @@ export async function GET(
       );
     }
 
-    // プレイヤー・回答・クイズを直列取得（コネクションプール節約）
-    const { data: players } = await supabase
-      .from('players')
-      .select('*')
-      .eq('room_id', room.id)
-      .order('position', { ascending: true, nullsFirst: false });
+    // プレイヤーをpositionでソート
+    const players = (room.players || []).sort(
+      (a: { position: number | null }, b: { position: number | null }) =>
+        (a.position ?? 999) - (b.position ?? 999)
+    );
 
     const needsAnswers = room.current_quiz_id && !['waiting', 'playing'].includes(room.status);
     const answerColumns = room.status === 'judging'
       ? 'id, room_id, quiz_id, player_id, drawing_data, is_correct'
       : 'id, room_id, quiz_id, player_id, is_correct';
 
-    const answers: unknown[] = needsAnswers
-      ? (await supabase
-          .from('answers')
-          .select(answerColumns)
-          .eq('room_id', room.id)
-          .eq('quiz_id', room.current_quiz_id)).data || []
-      : [];
+    // 回答とクイズを並列取得（必要な場合のみ）
+    const [answersResult, quizResult] = await Promise.all([
+      needsAnswers
+        ? supabase
+            .from('answers')
+            .select(answerColumns)
+            .eq('room_id', room.id)
+            .eq('quiz_id', room.current_quiz_id)
+        : Promise.resolve({ data: [] }),
+      room.current_quiz_id
+        ? supabase
+            .from('quizzes')
+            .select('id, question, answer')
+            .eq('id', room.current_quiz_id)
+            .single()
+        : Promise.resolve({ data: null }),
+    ]);
 
-    const quiz = room.current_quiz_id
-      ? (await supabase
-          .from('quizzes')
-          .select('id, question, answer')
-          .eq('id', room.current_quiz_id)
-          .single()).data
-      : null;
+    const answers: unknown[] = answersResult.data || [];
+    const quiz = quizResult.data;
     const currentQuiz = quiz
       ? {
           id: quiz.id,
