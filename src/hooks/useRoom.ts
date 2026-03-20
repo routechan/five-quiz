@@ -14,8 +14,8 @@ interface RoomState {
   error: string | null;
 }
 
-const POLL_INTERVAL_WAITING = 5000; // 待機中: 5秒（入退室検知）
-const POLL_INTERVAL_PLAYING = 3000; // ゲーム中: 3秒（回答状態反映）
+const POLL_INTERVAL_WAITING = 8000; // 待機中: 8秒（入退室検知）
+const POLL_INTERVAL_PLAYING = 5000; // ゲーム中: 5秒（回答状態反映）
 const DEBOUNCE_MS = 1000; // fetchRoom のデバウンス間隔
 
 export function useRoom(roomCode: string) {
