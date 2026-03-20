@@ -15,8 +15,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 古いルームを自動削除
-    await supabase.rpc('cleanup_old_rooms');
+    // 古いルームを自動削除（10回に1回の確率で実行し、DB負荷を軽減）
+    if (Math.random() < 0.1) {
+      await supabase.rpc('cleanup_old_rooms');
+    }
 
     // ルームコード生成
     const { data: codeData } = await supabase.rpc('generate_room_code');

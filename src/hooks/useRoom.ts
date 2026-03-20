@@ -30,6 +30,7 @@ export function useRoom(roomCode: string) {
   const roomCodeRef = useRef(roomCode);
   roomCodeRef.current = roomCode;
   const realtimeConnectedRef = useRef(false);
+  const subscribedRoomIdRef = useRef<string | null>(null);
 
   // デバウンス用タイマー
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -76,7 +77,11 @@ export function useRoom(roomCode: string) {
   // room_code ベースで rooms テーブルを即座に監視開始し、
   // room.id 取得後に players/answers の購読を追加
   useEffect(() => {
-    const roomId = state.room?.id;
+    const roomId = state.room?.id ?? null;
+
+    // room.id が同じなら再購読しない（不要なチャンネル再作成を防止）
+    if (roomId && subscribedRoomIdRef.current === roomId) return;
+
     const channelName = roomId
       ? `room:${roomCode}:${roomId}`
       : `room:${roomCode}`;
@@ -137,10 +142,12 @@ export function useRoom(roomCode: string) {
       realtimeConnectedRef.current = status === 'SUBSCRIBED';
     });
     channelRef.current = channel;
+    subscribedRoomIdRef.current = roomId;
 
     return () => {
       channel.unsubscribe();
       channelRef.current = null;
+      subscribedRoomIdRef.current = null;
       realtimeConnectedRef.current = false;
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);

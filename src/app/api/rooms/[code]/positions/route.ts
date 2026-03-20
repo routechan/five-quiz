@@ -54,20 +54,16 @@ export async function PATCH(
       );
     }
 
-    // 一旦全員のpositionをnullに
-    await supabase
-      .from('players')
-      .update({ position: null })
-      .eq('room_id', room.id);
+    // RPC で一括更新（トランザクション内で null化 → 再割り当て）
+    const { error: rpcError } = await supabase.rpc('update_positions', {
+      p_room_id: room.id,
+      p_positions: positions.map(({ playerId, position }: { playerId: string; position: number }) => ({
+        player_id: playerId,
+        position,
+      })),
+    });
 
-    // 順番更新
-    for (const { playerId, position } of positions) {
-      await supabase
-        .from('players')
-        .update({ position })
-        .eq('id', playerId)
-        .eq('room_id', room.id);
-    }
+    if (rpcError) throw rpcError;
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -72,33 +72,48 @@ export async function POST(
       return NextResponse.json({ success: true, added: 0 });
     }
 
-    const usedPositions = (players || [])
-      .map((p: { position: number | null }) => p.position)
-      .filter(Boolean) as number[];
-
-    const availablePositions: number[] = [];
-    for (let i = 1; i <= 5; i++) {
-      if (!usedPositions.includes(i)) availablePositions.push(i);
-    }
-
-    const inserts = [];
+    // BOTを1体ずつ追加（position 競合時はリトライ）
+    let added = 0;
     for (let i = 0; i < needed; i++) {
-      inserts.push({
-        room_id: room.id,
-        nickname: BOT_NAMES[i] || `BOT${i + 1}`,
-        session_id: `bot-${crypto.randomUUID()}`,
-        is_host: false,
-        is_bot: true,
-        position: availablePositions[i],
-      });
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const { data: currentPlayers } = await supabase
+          .from("players")
+          .select("position")
+          .eq("room_id", room.id)
+          .eq("is_spectator", false);
+
+        const usedPositions = (currentPlayers || [])
+          .map((p: { position: number | null }) => p.position)
+          .filter(Boolean) as number[];
+
+        let pos = null;
+        for (let j = 1; j <= 5; j++) {
+          if (!usedPositions.includes(j)) { pos = j; break; }
+        }
+        if (pos === null) break;
+
+        const { error: insertError } = await supabase
+          .from("players")
+          .insert({
+            room_id: room.id,
+            nickname: BOT_NAMES[i] || `BOT${i + 1}`,
+            session_id: `bot-${crypto.randomUUID()}`,
+            is_host: false,
+            is_bot: true,
+            position: pos,
+          });
+
+        if (!insertError) {
+          added++;
+          break;
+        }
+        if (!insertError.message?.includes("idx_players_room_position")) {
+          throw insertError;
+        }
+      }
     }
 
-    const { error: insertError } = await supabase
-      .from("players")
-      .insert(inserts);
-    if (insertError) throw insertError;
-
-    return NextResponse.json({ success: true, added: needed });
+    return NextResponse.json({ success: true, added });
   } catch (error) {
     console.error("Add bot error:", error);
     return NextResponse.json(

@@ -77,36 +77,54 @@ export async function POST(
       }
     }
 
-    // 次の空きポジション（BOT削除後の最新状態を再取得）
-    const { data: players } = await supabase
-      .from('players')
-      .select('position')
-      .eq('room_id', room.id)
-      .eq('is_spectator', false);
+    // 空きポジションを見つけてプレイヤー作成（競合時リトライ）
+    let player = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { data: players } = await supabase
+        .from('players')
+        .select('position')
+        .eq('room_id', room.id)
+        .eq('is_spectator', false);
 
-    const usedPositions = (players || []).map((p: { position: number | null }) => p.position).filter(Boolean);
-    let nextPosition = 1;
-    for (let i = 1; i <= 5; i++) {
-      if (!usedPositions.includes(i)) {
-        nextPosition = i;
+      const usedPositions = (players || []).map((p: { position: number | null }) => p.position).filter(Boolean);
+      let nextPosition = 1;
+      for (let i = 1; i <= 5; i++) {
+        if (!usedPositions.includes(i)) {
+          nextPosition = i;
+          break;
+        }
+      }
+
+      const { data, error } = await supabase
+        .from('players')
+        .insert({
+          room_id: room.id,
+          nickname,
+          session_id: sessionId,
+          is_host: false,
+          position: nextPosition,
+        })
+        .select()
+        .single();
+
+      if (!error) {
+        player = data;
         break;
       }
+
+      // position の競合エラー以外はそのまま throw
+      if (!error.message?.includes('idx_players_room_position')) {
+        throw error;
+      }
+      // 競合の場合はリトライ
     }
 
-    // プレイヤー作成
-    const { data: player, error } = await supabase
-      .from('players')
-      .insert({
-        room_id: room.id,
-        nickname,
-        session_id: sessionId,
-        is_host: false,
-        position: nextPosition,
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
+    if (!player) {
+      return NextResponse.json(
+        { error: { code: 'ROOM_FULL', message: 'ルームが満員です' } },
+        { status: 409 }
+      );
+    }
 
     return NextResponse.json({
       roomId: room.id,

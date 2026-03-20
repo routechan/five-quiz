@@ -96,9 +96,9 @@ export async function POST(
 
     if (insertError) throw insertError;
 
-    // ゲーム進行中の場合、BOTの回答を自動処理
-    if (['playing', 'answering'].includes(room.status) && room.current_quiz_id) {
-      // クイズの正解を取得
+    // ゲーム進行中またはjudging状態の場合、BOTの回答を自動処理
+    if (['playing', 'answering', 'judging'].includes(room.status) && room.current_quiz_id) {
+      // クイズの正解を1回だけ取得
       const { data: quiz } = await supabase
         .from('quizzes')
         .select('answer')
@@ -108,53 +108,51 @@ export async function POST(
       const answerChars = quiz?.answer ? [...quiz.answer] : [];
       const correctChar = answerChars[(targetPosition ?? 1) - 1] || '?';
 
-      // BOTの回答を挿入
-      await supabase.from('answers').insert({
-        room_id: room.id,
-        quiz_id: room.current_quiz_id,
-        player_id: botPlayer.id,
-        drawing_data: `dummy:${correctChar}`,
-      });
+      if (room.status === 'judging') {
+        // judging: 自動判定付きで回答投入（重複は無視）
+        await supabase.from('answers').upsert(
+          {
+            room_id: room.id,
+            quiz_id: room.current_quiz_id,
+            player_id: botPlayer.id,
+            drawing_data: `dummy:${correctChar}`,
+            is_correct: true,
+          },
+          { onConflict: 'room_id,quiz_id,player_id', ignoreDuplicates: true }
+        );
+      } else {
+        // playing/answering: BOTの回答を挿入（重複は無視）
+        await supabase.from('answers').upsert(
+          {
+            room_id: room.id,
+            quiz_id: room.current_quiz_id,
+            player_id: botPlayer.id,
+            drawing_data: `dummy:${correctChar}`,
+          },
+          { onConflict: 'room_id,quiz_id,player_id', ignoreDuplicates: true }
+        );
 
-      // 全員提出したか確認
-      const { count: answerCount } = await supabase
-        .from('answers')
-        .select('*', { count: 'exact', head: true })
-        .eq('room_id', room.id)
-        .eq('quiz_id', room.current_quiz_id);
+        // 全員提出したか確認（並列で取得）
+        const [{ count: answerCount }, { count: playerCount }] = await Promise.all([
+          supabase
+            .from('answers')
+            .select('*', { count: 'exact', head: true })
+            .eq('room_id', room.id)
+            .eq('quiz_id', room.current_quiz_id),
+          supabase
+            .from('players')
+            .select('*', { count: 'exact', head: true })
+            .eq('room_id', room.id)
+            .eq('is_spectator', false),
+        ]);
 
-      const { count: playerCount } = await supabase
-        .from('players')
-        .select('*', { count: 'exact', head: true })
-        .eq('room_id', room.id)
-        .eq('is_spectator', false);
-
-      if (answerCount === playerCount) {
-        await supabase
-          .from('rooms')
-          .update({ status: 'answered' })
-          .eq('id', room.id);
+        if (answerCount === playerCount) {
+          await supabase
+            .from('rooms')
+            .update({ status: 'answered' })
+            .eq('id', room.id);
+        }
       }
-    }
-
-    // judging 状態の場合、BOTの回答を自動投入＆自動判定
-    if (room.status === 'judging' && room.current_quiz_id) {
-      const { data: quiz } = await supabase
-        .from('quizzes')
-        .select('answer')
-        .eq('id', room.current_quiz_id)
-        .single();
-
-      const answerChars = quiz?.answer ? [...quiz.answer] : [];
-      const correctChar = answerChars[(targetPosition ?? 1) - 1] || '?';
-
-      await supabase.from('answers').insert({
-        room_id: room.id,
-        quiz_id: room.current_quiz_id,
-        player_id: botPlayer.id,
-        drawing_data: `dummy:${correctChar}`,
-        is_correct: true,
-      });
     }
 
     return NextResponse.json({ success: true });

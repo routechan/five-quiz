@@ -40,6 +40,10 @@ CREATE UNIQUE INDEX idx_players_room_position
   ON players (room_id, position)
   WHERE position IS NOT NULL;
 
+-- session_id 検索の高速化
+CREATE INDEX idx_players_room_session
+  ON players (room_id, session_id);
+
 -- 4. answers（回答）
 CREATE TABLE answers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

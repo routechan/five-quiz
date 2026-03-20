@@ -63,15 +63,18 @@ export async function POST(
       );
     }
 
-    // 回答保存
+    // 回答保存（重複時は無視）
     const { data: answer, error } = await supabase
       .from('answers')
-      .insert({
-        room_id: room.id,
-        quiz_id: room.current_quiz_id,
-        player_id: player.id,
-        drawing_data: drawingData,
-      })
+      .upsert(
+        {
+          room_id: room.id,
+          quiz_id: room.current_quiz_id,
+          player_id: player.id,
+          drawing_data: drawingData,
+        },
+        { onConflict: 'room_id,quiz_id,player_id', ignoreDuplicates: true }
+      )
       .select()
       .single();
 
@@ -98,20 +101,8 @@ export async function POST(
 
         const answerChars = quiz?.answer ? [...quiz.answer] : [];
 
-        // 既に回答済みのダミーを一括取得
-        const dummyIds = dummyPlayers.map((p: { id: string }) => p.id);
-        const { data: existingAnswers } = await supabase
-          .from('answers')
-          .select('player_id')
-          .eq('room_id', room.id)
-          .eq('quiz_id', room.current_quiz_id)
-          .in('player_id', dummyIds);
-
-        const existingPlayerIds = new Set((existingAnswers || []).map((a: { player_id: string }) => a.player_id));
-
-        // 未回答のダミーの回答を一括INSERT
+        // ダミーの回答を一括 upsert（重複は無視）
         const newAnswers = dummyPlayers
-          .filter((dummy: { id: string }) => !existingPlayerIds.has(dummy.id))
           .map((dummy: { id: string; position: number | null }) => ({
             room_id: room.id,
             quiz_id: room.current_quiz_id,
@@ -120,7 +111,9 @@ export async function POST(
           }));
 
         if (newAnswers.length > 0) {
-          await supabase.from('answers').insert(newAnswers);
+          await supabase
+            .from('answers')
+            .upsert(newAnswers, { onConflict: 'room_id,quiz_id,player_id', ignoreDuplicates: true });
         }
       }
     }
