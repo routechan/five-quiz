@@ -55,21 +55,21 @@ export async function POST(
 
     const quiz = quizData[0];
 
-    // 出題済みに登録
-    await supabase.from('used_quizzes').insert({
-      room_id: room.id,
-      quiz_id: quiz.id,
-    });
-
-    // ルーム状態更新
-    await supabase
-      .from('rooms')
-      .update({
-        status: 'playing',
-        current_quiz_id: quiz.id,
-        question_count: room.question_count + 1,
-      })
-      .eq('id', room.id);
+    // 出題済み登録 + ルーム状態更新を並列実行
+    await Promise.all([
+      supabase.from('used_quizzes').insert({
+        room_id: room.id,
+        quiz_id: quiz.id,
+      }),
+      supabase
+        .from('rooms')
+        .update({
+          status: 'playing',
+          current_quiz_id: quiz.id,
+          question_count: room.question_count + 1,
+        })
+        .eq('id', room.id),
+    ]);
 
     return NextResponse.json({
       success: true,

@@ -32,13 +32,15 @@ export async function POST(
       );
     }
 
-    // プレイヤー確認
-    const { data: player } = await supabase
+    // プレイヤー全員取得（自分の確認 + ダミー判定を1回で）
+    const { data: allPlayers } = await supabase
       .from('players')
-      .select('*')
-      .eq('room_id', room.id)
-      .eq('session_id', sessionId)
-      .single();
+      .select('id, session_id, position, is_spectator')
+      .eq('room_id', room.id);
+
+    const player = (allPlayers || []).find(
+      (p: { session_id: string }) => p.session_id === sessionId
+    );
 
     if (!player) {
       return NextResponse.json(
@@ -47,23 +49,7 @@ export async function POST(
       );
     }
 
-    // 既に提出済みか確認
-    const { data: existing } = await supabase
-      .from('answers')
-      .select('id')
-      .eq('room_id', room.id)
-      .eq('quiz_id', room.current_quiz_id)
-      .eq('player_id', player.id)
-      .single();
-
-    if (existing) {
-      return NextResponse.json(
-        { error: { code: 'ALREADY_SUBMITTED', message: '既に回答を提出しています' } },
-        { status: 400 }
-      );
-    }
-
-    // 回答保存（重複時は無視）
+    // 回答保存（upsert で重複時は無視 → 既提出チェック不要）
     const { data: answer, error } = await supabase
       .from('answers')
       .upsert(
@@ -81,55 +67,48 @@ export async function POST(
     if (error) throw error;
 
     // ダミープレイヤーの回答を自動投入（正解の文字を保存）
-    {
-      const { data: allPlayers } = await supabase
-        .from('players')
-        .select('id, session_id, position')
-        .eq('room_id', room.id);
+    const dummyPlayers = (allPlayers || []).filter(
+      (p: { session_id: string }) => p.session_id.startsWith('dev-dummy-') || p.session_id.startsWith('bot-')
+    );
 
-      const dummyPlayers = (allPlayers || []).filter(
-        (p: { session_id: string }) => p.session_id.startsWith('dev-dummy-') || p.session_id.startsWith('bot-')
-      );
+    if (dummyPlayers.length > 0 && room.current_quiz_id) {
+      // クイズの正解を取得
+      const { data: quiz } = await supabase
+        .from('quizzes')
+        .select('answer')
+        .eq('id', room.current_quiz_id)
+        .single();
 
-      if (dummyPlayers.length > 0) {
-        // クイズの正解を取得
-        const { data: quiz } = await supabase
-          .from('quizzes')
-          .select('answer')
-          .eq('id', room.current_quiz_id)
-          .single();
+      const answerChars = quiz?.answer ? [...quiz.answer] : [];
 
-        const answerChars = quiz?.answer ? [...quiz.answer] : [];
+      // ダミーの回答を一括 upsert（重複は無視）
+      const newAnswers = dummyPlayers
+        .map((dummy: { id: string; position: number | null }) => ({
+          room_id: room.id,
+          quiz_id: room.current_quiz_id,
+          player_id: dummy.id,
+          drawing_data: `dummy:${answerChars[(dummy.position ?? 1) - 1] || '?'}`,
+        }));
 
-        // ダミーの回答を一括 upsert（重複は無視）
-        const newAnswers = dummyPlayers
-          .map((dummy: { id: string; position: number | null }) => ({
-            room_id: room.id,
-            quiz_id: room.current_quiz_id,
-            player_id: dummy.id,
-            drawing_data: `dummy:${answerChars[(dummy.position ?? 1) - 1] || '?'}`,
-          }));
-
-        if (newAnswers.length > 0) {
-          await supabase
-            .from('answers')
-            .upsert(newAnswers, { onConflict: 'room_id,quiz_id,player_id', ignoreDuplicates: true });
-        }
+      if (newAnswers.length > 0) {
+        await supabase
+          .from('answers')
+          .upsert(newAnswers, { onConflict: 'room_id,quiz_id,player_id', ignoreDuplicates: true });
       }
     }
 
-    // 全員提出したか確認
+    // 全員提出したか確認（並列で取得）
+    const activePlayerCount = (allPlayers || []).filter(
+      (p: { is_spectator: boolean }) => !p.is_spectator
+    ).length;
+
     const { count } = await supabase
       .from('answers')
       .select('*', { count: 'exact', head: true })
       .eq('room_id', room.id)
       .eq('quiz_id', room.current_quiz_id);
 
-    const { count: playerCount } = await supabase
-      .from('players')
-      .select('*', { count: 'exact', head: true })
-      .eq('room_id', room.id)
-      .eq('is_spectator', false);
+    const playerCount = activePlayerCount;
 
     // 全員提出完了 → answered状態へ（ホストが回答表示するまで待機）
     if (count === playerCount) {

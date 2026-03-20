@@ -25,14 +25,15 @@ export async function POST(
       );
     }
 
-    // ホスト確認
-    const { data: host } = await supabase
+    // プレイヤー全員取得（ホスト確認 + 人数確認を1回で）
+    const { data: allPlayers } = await supabase
       .from('players')
       .select('*')
-      .eq('room_id', room.id)
-      .eq('session_id', sessionId)
-      .eq('is_host', true)
-      .single();
+      .eq('room_id', room.id);
+
+    const host = (allPlayers || []).find(
+      (p: { session_id: string; is_host: boolean }) => p.session_id === sessionId && p.is_host
+    );
 
     if (!host) {
       return NextResponse.json(
@@ -41,14 +42,11 @@ export async function POST(
       );
     }
 
-    // 5人確認（観戦者を除く）
-    const { data: players } = await supabase
-      .from('players')
-      .select('*')
-      .eq('room_id', room.id)
-      .eq('is_spectator', false);
+    const players = (allPlayers || []).filter(
+      (p: { is_spectator: boolean }) => !p.is_spectator
+    );
 
-    if (!players || players.length < 5) {
+    if (players.length < 5) {
       return NextResponse.json(
         { error: { code: 'NOT_ENOUGH_PLAYERS', message: '5人揃っていません' } },
         { status: 400 }
@@ -78,21 +76,21 @@ export async function POST(
 
     const quiz = quizData[0];
 
-    // 出題済みに登録
-    await supabase.from('used_quizzes').insert({
-      room_id: room.id,
-      quiz_id: quiz.id,
-    });
-
-    // ルーム状態更新
-    await supabase
-      .from('rooms')
-      .update({
-        status: 'playing',
-        current_quiz_id: quiz.id,
-        question_count: room.question_count + 1,
-      })
-      .eq('id', room.id);
+    // 出題済み登録 + ルーム状態更新を並列実行
+    await Promise.all([
+      supabase.from('used_quizzes').insert({
+        room_id: room.id,
+        quiz_id: quiz.id,
+      }),
+      supabase
+        .from('rooms')
+        .update({
+          status: 'playing',
+          current_quiz_id: quiz.id,
+          question_count: room.question_count + 1,
+        })
+        .eq('id', room.id),
+    ]);
 
     return NextResponse.json({
       success: true,

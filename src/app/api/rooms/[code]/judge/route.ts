@@ -25,13 +25,15 @@ export async function PATCH(
       );
     }
 
-    // プレイヤー確認
-    const { data: player } = await supabase
+    // プレイヤー全員取得（自分の確認 + ダミー判定を1回で）
+    const { data: allPlayers } = await supabase
       .from('players')
-      .select('*')
-      .eq('room_id', room.id)
-      .eq('session_id', sessionId)
-      .single();
+      .select('id, session_id, is_bot')
+      .eq('room_id', room.id);
+
+    const player = (allPlayers || []).find(
+      (p: { session_id: string }) => p.session_id === sessionId
+    );
 
     if (!player) {
       return NextResponse.json(
@@ -51,25 +53,18 @@ export async function PATCH(
     if (error) throw error;
 
     // ダミープレイヤーの判定を自動で正解にする（一括UPDATE）
-    {
-      const { data: allPlayers } = await supabase
-        .from('players')
-        .select('id, is_bot')
-        .eq('room_id', room.id);
+    const dummyIds = (allPlayers || [])
+      .filter((p: { is_bot: boolean }) => p.is_bot)
+      .map((p: { id: string }) => p.id);
 
-      const dummyIds = (allPlayers || [])
-        .filter((p: { is_bot: boolean }) => p.is_bot)
-        .map((p: { id: string }) => p.id);
-
-      if (dummyIds.length > 0) {
-        await supabase
-          .from('answers')
-          .update({ is_correct: true })
-          .eq('room_id', room.id)
-          .eq('quiz_id', room.current_quiz_id)
-          .in('player_id', dummyIds)
-          .is('is_correct', null);
-      }
+    if (dummyIds.length > 0) {
+      await supabase
+        .from('answers')
+        .update({ is_correct: true })
+        .eq('room_id', room.id)
+        .eq('quiz_id', room.current_quiz_id)
+        .in('player_id', dummyIds)
+        .is('is_correct', null);
     }
 
     // 全員判定完了か確認
