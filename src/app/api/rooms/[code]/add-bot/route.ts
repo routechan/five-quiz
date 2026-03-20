@@ -113,6 +113,14 @@ export async function POST(
       }
     }
 
+    // rooms を touch して Realtime 通知をトリガー（players変更を検知させる）
+    if (added > 0) {
+      await supabase
+        .from("rooms")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", room.id);
+    }
+
     return NextResponse.json({ success: true, added });
   } catch (error) {
     console.error("Add bot error:", error);

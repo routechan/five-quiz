@@ -65,6 +65,12 @@ export async function POST(
 
     if (error) throw error;
 
+    // rooms を touch して Realtime 通知をトリガー
+    await supabase
+      .from('rooms')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', room.id);
+
     return NextResponse.json({
       roomId: room.id,
       playerId: player.id,

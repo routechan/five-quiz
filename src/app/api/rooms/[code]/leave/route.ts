@@ -52,6 +52,12 @@ export async function POST(
     // 一般プレイヤー退出
     await supabase.from('players').delete().eq('id', player.id);
 
+    // rooms を touch して Realtime 通知をトリガー
+    await supabase
+      .from('rooms')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', room.id);
+
     return NextResponse.json({ success: true, roomClosed: false });
   } catch (error) {
     console.error('Leave room error:', error);

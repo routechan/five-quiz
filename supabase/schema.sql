@@ -19,7 +19,8 @@ CREATE TABLE rooms (
   current_quiz_id UUID REFERENCES quizzes(id),
   correct_count INTEGER NOT NULL DEFAULT 0,
   question_count INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- 3. players（プレイヤー）

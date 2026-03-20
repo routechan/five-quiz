@@ -65,6 +65,12 @@ export async function PATCH(
 
     if (rpcError) throw rpcError;
 
+    // rooms を touch して Realtime 通知をトリガー
+    await supabase
+      .from('rooms')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', room.id);
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Update positions error:', error);
