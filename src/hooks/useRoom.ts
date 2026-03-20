@@ -14,7 +14,7 @@ interface RoomState {
   error: string | null;
 }
 
-const POLL_INTERVAL = 5000; // 5秒ごとのフォールバックポーリング
+const POLL_INTERVAL = 10000; // 10秒ごとのフォールバックポーリング
 const DEBOUNCE_MS = 1000; // fetchRoom のデバウンス間隔
 
 export function useRoom(roomCode: string) {
@@ -34,8 +34,12 @@ export function useRoom(roomCode: string) {
 
   // デバウンス用タイマー
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fetchingRef = useRef(false);
 
   const fetchRoom = useCallback(async () => {
+    // 同時実行ガード: 前のfetchが完了するまでスキップ
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     try {
       const data = await api.getRoom(roomCodeRef.current);
       setState({
@@ -52,6 +56,8 @@ export function useRoom(roomCode: string) {
         loading: false,
         error: 'ルーム情報の取得に失敗しました',
       }));
+    } finally {
+      fetchingRef.current = false;
     }
   }, []);
 

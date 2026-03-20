@@ -2,28 +2,56 @@ import { getSessionId } from './session';
 
 const BASE_URL = '/api';
 
+// 同時リクエスト抑制: 同じパス+メソッドのリクエストが進行中なら待つ
+const inflightRequests = new Map<string, Promise<unknown>>();
+
 async function request<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
   const sessionId = getSessionId();
+  const method = options.method || 'GET';
+  const dedupeKey = `${method}:${path}`;
 
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Session-Id': sessionId,
-      ...options.headers,
-    },
-  });
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw data;
+  // GETリクエストは重複排除（同じリクエストが進行中ならそれを返す）
+  if (method === 'GET') {
+    const inflight = inflightRequests.get(dedupeKey);
+    if (inflight) return inflight as Promise<T>;
   }
 
-  return data as T;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000); // 10秒タイムアウト
+
+  const promise = (async () => {
+    try {
+      const res = await fetch(`${BASE_URL}${path}`, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Session-Id': sessionId,
+          ...options.headers,
+        },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw data;
+      }
+
+      return data as T;
+    } finally {
+      clearTimeout(timeout);
+      inflightRequests.delete(dedupeKey);
+    }
+  })();
+
+  if (method === 'GET') {
+    inflightRequests.set(dedupeKey, promise);
+  }
+
+  return promise;
 }
 
 export const api = {
