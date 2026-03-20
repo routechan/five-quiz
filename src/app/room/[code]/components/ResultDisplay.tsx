@@ -266,7 +266,7 @@ export function ResultDisplay({
         <div className="flex gap-4">
           <button
             onClick={handleNext}
-            disabled={loading}
+            disabled={loading || ending}
             className="btn-canvas flex-1 py-3 text-lg cursor-pointer disabled:opacity-50"
           >
             {loading ? '読み込み中...' : '次の問題へ'}
