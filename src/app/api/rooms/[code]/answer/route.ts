@@ -98,25 +98,29 @@ export async function POST(
 
         const answerChars = quiz?.answer ? [...quiz.answer] : [];
 
-        for (const dummy of dummyPlayers) {
-          const { data: existingDummy } = await supabase
-            .from('answers')
-            .select('id')
-            .eq('room_id', room.id)
-            .eq('quiz_id', room.current_quiz_id)
-            .eq('player_id', dummy.id)
-            .single();
+        // 既に回答済みのダミーを一括取得
+        const dummyIds = dummyPlayers.map((p: { id: string }) => p.id);
+        const { data: existingAnswers } = await supabase
+          .from('answers')
+          .select('player_id')
+          .eq('room_id', room.id)
+          .eq('quiz_id', room.current_quiz_id)
+          .in('player_id', dummyIds);
 
-          if (!existingDummy) {
-            // ダミーの担当文字を取得（positionは1始まり）
-            const correctChar = answerChars[(dummy.position ?? 1) - 1] || '?';
-            await supabase.from('answers').insert({
-              room_id: room.id,
-              quiz_id: room.current_quiz_id,
-              player_id: dummy.id,
-              drawing_data: `dummy:${correctChar}`,
-            });
-          }
+        const existingPlayerIds = new Set((existingAnswers || []).map((a: { player_id: string }) => a.player_id));
+
+        // 未回答のダミーの回答を一括INSERT
+        const newAnswers = dummyPlayers
+          .filter((dummy: { id: string }) => !existingPlayerIds.has(dummy.id))
+          .map((dummy: { id: string; position: number | null }) => ({
+            room_id: room.id,
+            quiz_id: room.current_quiz_id,
+            player_id: dummy.id,
+            drawing_data: `dummy:${answerChars[(dummy.position ?? 1) - 1] || '?'}`,
+          }));
+
+        if (newAnswers.length > 0) {
+          await supabase.from('answers').insert(newAnswers);
         }
       }
     }

@@ -24,45 +24,47 @@ export async function GET(
       );
     }
 
-    // プレイヤー取得
-    const { data: players } = await supabase
-      .from('players')
-      .select('*')
-      .eq('room_id', room.id)
-      .order('position', { ascending: true, nullsFirst: false });
+    // プレイヤー・回答・クイズを並列取得（不要なクエリはスキップ）
+    const needsAnswers = room.current_quiz_id && !['waiting', 'playing'].includes(room.status);
+    const answerColumns = room.status === 'judging'
+      ? 'id, room_id, quiz_id, player_id, drawing_data, is_correct'
+      : 'id, room_id, quiz_id, player_id, is_correct';
 
-    // 現在のクイズの回答取得（judging以外ではdrawing_dataを除外して転送量を削減）
-    let answers: unknown[] = [];
-    if (room.current_quiz_id) {
-      const answerColumns = room.status === 'judging'
-        ? 'id, room_id, quiz_id, player_id, drawing_data, is_correct'
-        : 'id, room_id, quiz_id, player_id, is_correct';
-      const { data: answerData } = await supabase
-        .from('answers')
-        .select(answerColumns)
-        .eq('room_id', room.id)
-        .eq('quiz_id', room.current_quiz_id);
-      answers = answerData || [];
-    }
-
-    // クイズ情報
-    let currentQuiz = null;
-    if (room.current_quiz_id) {
-      const { data: quiz } = await supabase
-        .from('quizzes')
+    const [playersResult, answersResult, quizResult] = await Promise.all([
+      // プレイヤー取得
+      supabase
+        .from('players')
         .select('*')
-        .eq('id', room.current_quiz_id)
-        .single();
+        .eq('room_id', room.id)
+        .order('position', { ascending: true, nullsFirst: false }),
+      // 回答取得（必要な場合のみ）
+      needsAnswers
+        ? supabase
+            .from('answers')
+            .select(answerColumns)
+            .eq('room_id', room.id)
+            .eq('quiz_id', room.current_quiz_id)
+        : Promise.resolve({ data: null }),
+      // クイズ取得（必要な場合のみ）
+      room.current_quiz_id
+        ? supabase
+            .from('quizzes')
+            .select('id, question, answer')
+            .eq('id', room.current_quiz_id)
+            .single()
+        : Promise.resolve({ data: null }),
+    ]);
 
-      if (quiz) {
-        currentQuiz = {
+    const players = playersResult.data;
+    const answers: unknown[] = answersResult.data || [];
+    const quiz = quizResult.data;
+    const currentQuiz = quiz
+      ? {
           id: quiz.id,
           question: quiz.question,
-          // judging状態の時のみ正解を含める
           ...(room.status === 'judging' ? { answer: quiz.answer } : {}),
-        };
-      }
-    }
+        }
+      : null;
 
     return NextResponse.json({
       room: {

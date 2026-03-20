@@ -15,7 +15,7 @@ interface RoomState {
 }
 
 const POLL_INTERVAL = 5000; // 5秒ごとのフォールバックポーリング
-const DEBOUNCE_MS = 300; // fetchRoom のデバウンス間隔
+const DEBOUNCE_MS = 1000; // fetchRoom のデバウンス間隔
 
 export function useRoom(roomCode: string) {
   const [state, setState] = useState<RoomState>({
