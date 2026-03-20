@@ -25,14 +25,15 @@ export async function POST(
       );
     }
 
-    // ホスト確認
-    const { data: host } = await supabase
+    // プレイヤー全員取得（ホスト確認 + キック対象を1回で）
+    const { data: allPlayers } = await supabase
       .from('players')
       .select('*')
-      .eq('room_id', room.id)
-      .eq('session_id', sessionId)
-      .eq('is_host', true)
-      .single();
+      .eq('room_id', room.id);
+
+    const host = (allPlayers || []).find(
+      (p: { session_id: string; is_host: boolean }) => p.session_id === sessionId && p.is_host
+    );
 
     if (!host) {
       return NextResponse.json(
@@ -41,13 +42,9 @@ export async function POST(
       );
     }
 
-    // キック対象のプレイヤー情報を取得（position を保存するため）
-    const { data: targetPlayer } = await supabase
-      .from('players')
-      .select('*')
-      .eq('id', targetPlayerId)
-      .eq('room_id', room.id)
-      .single();
+    const targetPlayer = (allPlayers || []).find(
+      (p: { id: string }) => p.id === targetPlayerId
+    );
 
     if (!targetPlayer) {
       return NextResponse.json(
@@ -132,19 +129,18 @@ export async function POST(
           { onConflict: 'room_id,quiz_id,player_id', ignoreDuplicates: true }
         );
 
-        // 全員提出したか確認（並列で取得）
-        const [{ count: answerCount }, { count: playerCount }] = await Promise.all([
-          supabase
-            .from('answers')
-            .select('*', { count: 'exact', head: true })
-            .eq('room_id', room.id)
-            .eq('quiz_id', room.current_quiz_id),
-          supabase
-            .from('players')
-            .select('*', { count: 'exact', head: true })
-            .eq('room_id', room.id)
-            .eq('is_spectator', false),
-        ]);
+        // 全員提出したか確認
+        const { count: answerCount } = await supabase
+          .from('answers')
+          .select('*', { count: 'exact', head: true })
+          .eq('room_id', room.id)
+          .eq('quiz_id', room.current_quiz_id);
+
+        const { count: playerCount } = await supabase
+          .from('players')
+          .select('*', { count: 'exact', head: true })
+          .eq('room_id', room.id)
+          .eq('is_spectator', false);
 
         if (answerCount === playerCount) {
           await supabase
