@@ -1,7 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { DrawingCanvas } from '@/components/DrawingCanvas';
+import { useState, useEffect, useMemo } from 'react';
+import dynamic from 'next/dynamic';
+
+const DrawingCanvas = dynamic(
+  () => import('@/components/DrawingCanvas').then((mod) => mod.DrawingCanvas),
+  { ssr: false, loading: () => <div className="w-75 h-75 mx-auto rounded-2xl" style={{ border: '4px solid var(--color-canvas)', background: 'white' }} /> }
+);
 import { AnswerSlot } from '@/components/AnswerSlot';
 import { api } from '@/lib/api';
 import { useSound } from '@/hooks/useSound';
@@ -24,8 +29,9 @@ export function AnswerInput({ room, players, currentPlayer, currentQuiz, roomCod
     playQuestion();
   }, [playQuestion]);
 
-  const sortedPlayers = [...players].sort(
-    (a, b) => (a.position ?? 99) - (b.position ?? 99)
+  const sortedPlayers = useMemo(
+    () => [...players].sort((a, b) => (a.position ?? 99) - (b.position ?? 99)),
+    [players]
   );
 
   const handleSubmit = async (dataUrl: string) => {

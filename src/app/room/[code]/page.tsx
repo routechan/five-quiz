@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useRoom } from '@/hooks/useRoom';
 import { useSession } from '@/hooks/useSession';
@@ -18,11 +18,16 @@ export default function RoomPage() {
   const sessionId = useSession();
   const { room, players, answers, currentQuiz, loading, error, refetch } = useRoom(code);
 
+  // sessionStorage の読み取りを1回だけ行う
+  const storedPlayerId = useMemo(
+    () => (typeof window !== 'undefined' ? sessionStorage.getItem('playerId') : null),
+    // players が変わるたびに再評価（参加後に playerId がセットされるケース対応）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [players]
+  );
+
   // 現在のプレイヤー
-  const currentPlayer = players.find((p) => {
-    const storedPlayerId = typeof window !== 'undefined' ? sessionStorage.getItem('playerId') : null;
-    return p.id === storedPlayerId;
-  });
+  const currentPlayer = players.find((p) => p.id === storedPlayerId);
 
   const isHost = currentPlayer?.isHost ?? false;
   const isSpectator = currentPlayer?.isSpectator ?? false;

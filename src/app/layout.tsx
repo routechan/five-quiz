@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Dela_Gothic_One, M_PLUS_Rounded_1c } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
+import Script from "next/script";
 import "./globals.css";
 
 const delaGothicOne = Dela_Gothic_One({
@@ -60,10 +61,10 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <head>
-        <script
-          async
+        <Script
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1738406462514632"
           crossOrigin="anonymous"
+          strategy="lazyOnload"
         />
         <script
           dangerouslySetInnerHTML={{
