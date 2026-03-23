@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { PlayerCard } from '@/components/PlayerCard';
 import type { Room, Player } from '@/types';
@@ -19,6 +19,7 @@ export function WaitingRoom({ room, players, spectators = [], currentPlayer, isH
   const [starting, setStarting] = useState(false);
   const [addingBot, setAddingBot] = useState(false);
   const [kickingId, setKickingId] = useState<string | null>(null);
+  const [confirmKickId, setConfirmKickId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
 
@@ -29,8 +30,9 @@ export function WaitingRoom({ room, players, spectators = [], currentPlayer, isH
   const touchCurrentElement = useRef<HTMLElement | null>(null);
   const playerListRef = useRef<HTMLDivElement>(null);
 
-  const sortedPlayers = [...players].sort(
-    (a, b) => (a.position ?? 99) - (b.position ?? 99)
+  const sortedPlayers = useMemo(
+    () => [...players].sort((a, b) => (a.position ?? 99) - (b.position ?? 99)),
+    [players]
   );
 
   const shareUrl = typeof window !== 'undefined'
@@ -48,7 +50,6 @@ export function WaitingRoom({ room, players, spectators = [], currentPlayer, isH
   };
 
   const handleKick = async (playerId: string) => {
-    if (!confirm('このプレイヤーをキックしますか？')) return;
     setKickingId(playerId);
     try {
       await api.kickPlayer(roomCode, playerId);
@@ -57,6 +58,7 @@ export function WaitingRoom({ room, players, spectators = [], currentPlayer, isH
       // エラー時はリセット
     } finally {
       setKickingId(null);
+      setConfirmKickId(null);
     }
   };
 
@@ -228,18 +230,33 @@ export function WaitingRoom({ room, players, spectators = [], currentPlayer, isH
                 isCurrentUser={player.id === currentPlayer.id}
               />
               {isHost && !player.isHost && !player.isBot && player.id !== currentPlayer.id && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleKick(player.id); }}
-                  disabled={kickingId === player.id}
-                  className="text-xs px-2 py-1 rounded cursor-pointer flex-shrink-0"
-                  style={{
-                    background: 'var(--color-danger, #ef4444)',
-                    color: 'white',
-                    opacity: kickingId === player.id ? 0.5 : 1,
-                  }}
-                >
-                  {kickingId === player.id ? '...' : 'キック'}
-                </button>
+                confirmKickId === player.id ? (
+                  <div className="flex gap-1 flex-shrink-0">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleKick(player.id); }}
+                      disabled={kickingId === player.id}
+                      className="text-xs px-2 py-1 rounded cursor-pointer"
+                      style={{ background: 'var(--color-danger, #ef4444)', color: 'white', opacity: kickingId === player.id ? 0.5 : 1 }}
+                    >
+                      {kickingId === player.id ? '...' : 'はい'}
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setConfirmKickId(null); }}
+                      className="text-xs px-2 py-1 rounded cursor-pointer"
+                      style={{ background: 'var(--color-secondary)', color: 'var(--color-text-primary)' }}
+                    >
+                      戻る
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setConfirmKickId(player.id); }}
+                    className="text-xs px-2 py-1 rounded cursor-pointer flex-shrink-0"
+                    style={{ background: 'var(--color-danger, #ef4444)', color: 'white' }}
+                  >
+                    キック
+                  </button>
+                )
               )}
             </div>
           ))}

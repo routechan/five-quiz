@@ -237,3 +237,13 @@ body {
   color: var(--color-canvas);
   text-shadow: 0 0 8px rgba(30, 144, 255, 0.4);
 }
+
+/* Input focus state */
+.input-nickname {
+  border: 3px solid var(--color-secondary);
+  transition: border-color 0.2s ease;
+}
+
+.input-nickname:focus {
+  border-color: var(--color-primary);
+}

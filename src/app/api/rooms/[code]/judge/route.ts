@@ -10,13 +10,12 @@ export async function PATCH(
   const { code } = await params;
 
   try {
-    const { sessionId, isCorrect } = await request.json();
-
-    const { data: room } = await supabase
-      .from('rooms')
-      .select('*')
-      .eq('room_code', code)
-      .single();
+    // 並列実行: request.json()とroomクエリは独立
+    const [body, { data: room }] = await Promise.all([
+      request.json(),
+      supabase.from('rooms').select('*').eq('room_code', code).single(),
+    ]);
+    const { sessionId, isCorrect } = body;
 
     if (!room) {
       return NextResponse.json(
@@ -84,15 +83,14 @@ export async function PATCH(
       teamCorrect = answers.every(
         (a: { is_correct: boolean | null }) => a.is_correct === true
       );
-
-      // チーム正解の場合、カウント増加
-      if (teamCorrect) {
-        await supabase
-          .from('rooms')
-          .update({ correct_count: room.correct_count + 1 })
-          .eq('id', room.id);
-      }
     }
+
+    // Realtime通知トリガー: 正解時はcorrect_count増加、それ以外はtouch
+    const updateData = allJudged && teamCorrect
+      ? { correct_count: room.correct_count + 1 }
+      : { updated_at: new Date().toISOString() };
+
+    await supabase.from('rooms').update(updateData).eq('id', room.id);
 
     return NextResponse.json({
       success: true,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { api } from '@/lib/api';
 
@@ -13,6 +13,22 @@ export default function NicknamePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showSpectate, setShowSpectate] = useState(false);
+  // ページ表示時に満室・ゲーム開始済みかチェック
+  useEffect(() => {
+    api.getRoom(code).then(({ room, players }) => {
+      const activePlayers = players.filter(p => !p.isSpectator);
+      const hasBotSlot = activePlayers.some(p => p.isBot);
+      if (room.status !== 'waiting') {
+        setShowSpectate(true);
+        setError('ゲームは既に開始されています');
+      } else if (activePlayers.length >= 5 && !hasBotSlot) {
+        setShowSpectate(true);
+        setError('ルームが満員です');
+      }
+    }).catch(() => {
+      // ルームが見つからない場合などはjoin時にハンドル
+    });
+  }, [code]);
 
   const handleJoin = async () => {
     if (!nickname.trim()) {
@@ -98,16 +114,13 @@ export default function NicknamePage() {
               }}
               maxLength={10}
               placeholder="最大10文字"
-              className="w-full px-4 py-3 rounded-xl text-center text-lg font-bold
+              className="input-nickname w-full px-4 py-3 rounded-xl text-center text-lg font-bold
                 focus:outline-none focus:ring-3 transition-all"
               style={{
-                border: '3px solid var(--color-secondary)',
                 color: 'var(--color-text-primary)',
                 caretColor: 'var(--color-text-primary)',
                 background: 'var(--color-bg-card)',
               }}
-              onFocus={(e) => e.target.style.borderColor = 'var(--color-primary)'}
-              onBlur={(e) => e.target.style.borderColor = 'var(--color-secondary)'}
               onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
               autoFocus
             />

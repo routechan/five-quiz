@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { AnswerSlot } from '@/components/AnswerSlot';
 import { api } from '@/lib/api';
 import { useSound } from '@/hooks/useSound';
 import type { Room, Player, Answer } from '@/types';
+
+const DUMMY_NAMES = ['BOT', 'ジュン', 'タイゾウ', 'ケン', 'オサム'];
 
 interface Props {
   room: Room;
@@ -39,22 +41,47 @@ export function ResultDisplay({
     playReveal();
   }, [playReveal]);
 
-  const sortedPlayers = [...players].sort(
-    (a, b) => (a.position ?? 99) - (b.position ?? 99)
+  const sortedPlayers = useMemo(
+    () => [...players].sort((a, b) => (a.position ?? 99) - (b.position ?? 99)),
+    [players]
   );
 
-  const answerChars = currentQuiz.answer ? [...currentQuiz.answer] : [];
+  const answerChars = useMemo(
+    () => currentQuiz.answer ? [...currentQuiz.answer] : [],
+    [currentQuiz.answer]
+  );
 
   const myAnswer = answers.find((a) => a.playerId === currentPlayer.id);
   const hasJudged = myAnswer?.isCorrect !== null && myAnswer?.isCorrect !== undefined;
 
-  const judgedCount = answers.filter(
-    (a) => a.isCorrect !== null && a.isCorrect !== undefined
-  ).length;
+  // 1回のイテレーションで判定数とチーム正解を計算
+  const { judgedCount, allCorrect } = useMemo(() => {
+    let judged = 0;
+    let correct = true;
+    for (const a of answers) {
+      if (a.isCorrect !== null && a.isCorrect !== undefined) {
+        judged++;
+        if (!a.isCorrect) correct = false;
+      } else {
+        correct = false;
+      }
+    }
+    return { judgedCount: judged, allCorrect: correct };
+  }, [answers]);
 
   // 全員判定完了時にSEを再生
   const allJudged = judgedCount === players.length && players.length > 0;
-  const teamCorrect = allJudged && answers.every((a) => a.isCorrect === true);
+  const teamCorrect = allJudged && allCorrect;
+
+  // 未判定の人間プレイヤー（キック対象）
+  const unjudgedHumans = useMemo(() => {
+    if (!isHost || allJudged) return [];
+    return sortedPlayers.filter((p) => {
+      const ans = answers.find((a) => a.playerId === p.id);
+      const notJudged = !ans || ans.isCorrect === null || ans.isCorrect === undefined;
+      return notJudged && !p.isHost && !DUMMY_NAMES.includes(p.nickname);
+    });
+  }, [isHost, allJudged, sortedPlayers, answers]);
 
   useEffect(() => {
     if (!allJudged) {
@@ -78,6 +105,7 @@ export function ResultDisplay({
       await api.judgeAnswer(roomCode, isCorrect);
     } catch {
       setError('判定に失敗しました');
+    } finally {
       setJudging(false);
     }
   };
@@ -224,38 +252,29 @@ export function ResultDisplay({
       </p>
 
       {/* ホスト用: 未判定プレイヤーのキック */}
-      {isHost && !allJudged && (() => {
-        const dummyNames = ['BOT', 'ジュン', 'タイゾウ', 'ケン', 'オサム'];
-        const unjudgedHumans = sortedPlayers.filter((p) => {
-          const ans = answers.find((a) => a.playerId === p.id);
-          const notJudged = !ans || ans.isCorrect === null || ans.isCorrect === undefined;
-          return notJudged && !p.isHost && !dummyNames.includes(p.nickname);
-        });
-        if (unjudgedHumans.length === 0) return null;
-        return (
-          <div className="flex flex-wrap justify-center gap-2">
-            {unjudgedHumans.map((p) => (
-              <button
-                key={p.id}
-                onClick={async () => {
-                  if (!confirm(`${p.nickname} をキックしてBOTに置き換えますか？`)) return;
-                  setKickingId(p.id);
-                  try { await api.kickPlayer(roomCode, p.id); } catch { /* noop */ } finally { setKickingId(null); }
-                }}
-                disabled={kickingId === p.id}
-                className="text-xs px-3 py-1 rounded font-bold cursor-pointer"
-                style={{
-                  background: 'var(--color-danger, #ef4444)',
-                  color: 'white',
-                  opacity: kickingId === p.id ? 0.5 : 1,
-                }}
-              >
-                {kickingId === p.id ? '...' : `${p.nickname} をキック`}
-              </button>
-            ))}
-          </div>
-        );
-      })()}
+      {unjudgedHumans.length > 0 && (
+        <div className="flex flex-wrap justify-center gap-2">
+          {unjudgedHumans.map((p) => (
+            <button
+              key={p.id}
+              onClick={async () => {
+                if (!confirm(`${p.nickname} をキックしてBOTに置き換えますか？`)) return;
+                setKickingId(p.id);
+                try { await api.kickPlayer(roomCode, p.id); } catch { /* noop */ } finally { setKickingId(null); }
+              }}
+              disabled={kickingId === p.id}
+              className="text-xs px-3 py-1 rounded font-bold cursor-pointer"
+              style={{
+                background: 'var(--color-danger, #ef4444)',
+                color: 'white',
+                opacity: kickingId === p.id ? 0.5 : 1,
+              }}
+            >
+              {kickingId === p.id ? '...' : `${p.nickname} をキック`}
+            </button>
+          ))}
+        </div>
+      )}
 
       {error && (
         <p className="text-sm text-center font-bold" style={{ color: 'var(--color-error)' }}>{error}</p>
