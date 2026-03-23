@@ -74,6 +74,10 @@ export async function POST(
 
     // 待機中はBOT置換不要（プレイヤー削除のみ）
     if (room.status === 'waiting') {
+      await supabase
+        .from('rooms')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', room.id);
       return NextResponse.json({ success: true });
     }
 
