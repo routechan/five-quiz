@@ -39,6 +39,8 @@ export function useRoom(roomCode: string) {
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fetchingRef = useRef(false);
 
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const fetchRoom = useCallback(async () => {
     // 同時実行ガード: 前のfetchが完了するまでスキップ
     if (fetchingRef.current) return;
@@ -54,11 +56,19 @@ export function useRoom(roomCode: string) {
         error: null,
       });
     } catch {
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        error: 'ルーム情報の取得に失敗しました',
-      }));
+      setState((prev) => {
+        // 初回読み込み中（room が null）のみエラー表示。
+        // 既にデータがある場合は裏でリトライし、エラー画面にはしない。
+        if (prev.room) return prev;
+        return { ...prev, loading: false, error: 'ルーム情報の取得に失敗しました' };
+      });
+      // 失敗後 3 秒で自動リトライ（復帰直後のネットワーク不安定対策）
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = setTimeout(() => {
+        fetchingRef.current = false;
+        fetchRoomRef.current();
+      }, 3000);
+      return;
     } finally {
       fetchingRef.current = false;
     }
@@ -137,6 +147,9 @@ export function useRoom(roomCode: string) {
       realtimeConnectedRef.current = false;
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
+      }
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
       }
     };
   }, [roomCode, setupChannel]);
