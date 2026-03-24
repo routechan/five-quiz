@@ -78,25 +78,21 @@ export function useRoom(roomCode: string) {
     fetchRoomRef.current();
   }, [roomCode]);
 
-  // Supabase Realtime 購読（rooms テーブルのみ監視 — コネクション節約）
-  // players/answers の変更は rooms.status の遷移で検知する。
-  // 待機中の入退室はポーリングで補完。
-  useEffect(() => {
-    // 前のチャンネルをクリーンアップ
+  // Realtime チャンネルを作成・購読するヘルパー
+  const setupChannel = useCallback(() => {
     if (channelRef.current) {
       channelRef.current.unsubscribe();
     }
 
-    const channel = supabase.channel(`room:${roomCode}`);
+    const channel = supabase.channel(`room:${roomCodeRef.current}`);
 
-    // rooms テーブルの変更のみ監視（コネクション1本で済む）
     channel.on(
       'postgres_changes',
       {
         event: 'UPDATE',
         schema: 'public',
         table: 'rooms',
-        filter: `room_code=eq.${roomCode}`,
+        filter: `room_code=eq.${roomCodeRef.current}`,
       },
       () => {
         debouncedFetchRoom();
@@ -105,18 +101,48 @@ export function useRoom(roomCode: string) {
 
     channel.subscribe((status) => {
       realtimeConnectedRef.current = status === 'SUBSCRIBED';
+      // エラー/タイムアウト時はフォールバックポーリングに任せる
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        realtimeConnectedRef.current = false;
+      }
     });
     channelRef.current = channel;
+  }, [debouncedFetchRoom]);
+
+  // Supabase Realtime 購読（rooms テーブルのみ監視 — コネクション節約）
+  // players/answers の変更は rooms.status の遷移で検知する。
+  // 待機中の入退室はポーリングで補完。
+  useEffect(() => {
+    setupChannel();
 
     return () => {
-      channel.unsubscribe();
-      channelRef.current = null;
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+        channelRef.current = null;
+      }
       realtimeConnectedRef.current = false;
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [roomCode, debouncedFetchRoom]);
+  }, [roomCode, setupChannel]);
+
+  // ブラウザ復帰時（バックグラウンド→フォアグラウンド）に再接続＋再取得
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Realtime チャンネルを張り直す（stale 接続対策）
+        setupChannel();
+        // 最新データを即取得
+        fetchRoomRef.current();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [setupChannel]);
 
   // フォールバックポーリング（Realtime未検知の変更を補完）
   useEffect(() => {
