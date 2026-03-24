@@ -28,6 +28,7 @@ export function ResultDisplay({
   roomCode,
 }: Props) {
   const [judging, setJudging] = useState(false);
+  const [judgedLocal, setJudgedLocal] = useState<boolean | null>(null); // 送信済みの判定結果（再フェッチ前のUI即反映用）
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [kickingId, setKickingId] = useState<string | null>(null);
@@ -58,7 +59,8 @@ export function ResultDisplay({
   );
 
   const myAnswer = answerMap.get(currentPlayer.id);
-  const hasJudged = myAnswer?.isCorrect !== null && myAnswer?.isCorrect !== undefined;
+  const hasJudged = judgedLocal !== null || (myAnswer?.isCorrect !== null && myAnswer?.isCorrect !== undefined);
+  const judgedResult = judgedLocal ?? myAnswer?.isCorrect ?? null;
 
   // 1回のイテレーションで判定数とチーム正解を計算
   const { judgedCount, allCorrect } = useMemo(() => {
@@ -109,6 +111,7 @@ export function ResultDisplay({
     setError('');
     try {
       await api.judgeAnswer(roomCode, isCorrect);
+      setJudgedLocal(isCorrect);
     } catch {
       setError('判定に失敗しました');
     } finally {
@@ -243,7 +246,7 @@ export function ResultDisplay({
       ) : (
         <div className="text-center py-2">
           <p className="font-bold" style={{ color: 'var(--color-text-secondary)' }}>
-            判定済み: {myAnswer?.isCorrect ? (
+            判定済み: {judgedResult ? (
               <span className="font-extrabold marker-correct">⭕ 正解</span>
             ) : (
               <span className="font-extrabold marker-incorrect">✕ 不正解</span>
