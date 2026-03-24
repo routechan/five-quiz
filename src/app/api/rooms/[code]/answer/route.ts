@@ -113,15 +113,16 @@ export async function POST(
     // 全員提出完了 → answered状態へ（ホストが回答表示するまで待機）
     const now = new Date().toISOString();
     if (count === playerCount) {
+      // status 変更だけで Realtime 通知が飛ぶ（updated_at 不要）
       await supabase
         .from('rooms')
-        .update({ status: 'answered', updated_at: now })
+        .update({ status: 'answered' })
         .eq('id', room.id);
     } else if (room.status === 'playing') {
-      // playing → answering へ
+      // playing → answering へ（status 変更で Realtime 通知）
       await supabase
         .from('rooms')
-        .update({ status: 'answering', updated_at: now })
+        .update({ status: 'answering' })
         .eq('id', room.id);
     } else {
       // ステータス変更なし（answering中の追加回答）→ updated_at だけ更新して Realtime 通知

@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnswerSlot } from '@/components/AnswerSlot';
 import type { Room, Player, Answer } from '@/types';
@@ -21,7 +22,12 @@ export function SpectatorView({ room, players, spectators, answers, currentQuiz 
 
   const answerChars = currentQuiz?.answer ? [...currentQuiz.answer] : [];
 
-  const submittedIds = new Set(answers.map((a) => a.playerId));
+  // O(1) lookup 用 Map（answers.find の O(n²) を解消）
+  const answerMap = useMemo(
+    () => new Map(answers.map((a) => [a.playerId, a])),
+    [answers]
+  );
+  const submittedIds = answerMap;
 
   const judgedCount = answers.filter(
     (a) => a.isCorrect !== null && a.isCorrect !== undefined
@@ -227,7 +233,7 @@ export function SpectatorView({ room, players, spectators, answers, currentQuiz 
           {/* 全員の回答 */}
           <div className="flex justify-center gap-2 sm:gap-4">
             {sortedPlayers.map((player) => {
-              const playerAnswer = answers.find((a) => a.playerId === player.id);
+              const playerAnswer = answerMap.get(player.id);
               return (
                 <AnswerSlot
                   key={player.id}

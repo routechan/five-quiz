@@ -51,7 +51,13 @@ export function ResultDisplay({
     [currentQuiz.answer]
   );
 
-  const myAnswer = answers.find((a) => a.playerId === currentPlayer.id);
+  // O(1) lookup 用 Map（answers.find の O(n²) を解消）
+  const answerMap = useMemo(
+    () => new Map(answers.map((a) => [a.playerId, a])),
+    [answers]
+  );
+
+  const myAnswer = answerMap.get(currentPlayer.id);
   const hasJudged = myAnswer?.isCorrect !== null && myAnswer?.isCorrect !== undefined;
 
   // 1回のイテレーションで判定数とチーム正解を計算
@@ -77,11 +83,11 @@ export function ResultDisplay({
   const unjudgedHumans = useMemo(() => {
     if (!isHost || allJudged) return [];
     return sortedPlayers.filter((p) => {
-      const ans = answers.find((a) => a.playerId === p.id);
+      const ans = answerMap.get(p.id);
       const notJudged = !ans || ans.isCorrect === null || ans.isCorrect === undefined;
       return notJudged && !p.isHost && !DUMMY_NAMES.includes(p.nickname);
     });
-  }, [isHost, allJudged, sortedPlayers, answers]);
+  }, [isHost, allJudged, sortedPlayers, answerMap]);
 
   useEffect(() => {
     if (!allJudged) {
@@ -186,7 +192,7 @@ export function ResultDisplay({
       {/* 全員の回答 */}
       <div className="flex justify-center gap-2 sm:gap-4">
         {sortedPlayers.map((player) => {
-          const playerAnswer = answers.find((a) => a.playerId === player.id);
+          const playerAnswer = answerMap.get(player.id);
           return (
             <AnswerSlot
               key={player.id}

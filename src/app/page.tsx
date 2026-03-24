@@ -30,7 +30,8 @@ export default function TopPage() {
       const { roomCode, playerId } = await api.createRoom(nickname.trim());
       sessionStorage.setItem("playerId", playerId);
       router.push(`/room/${roomCode}`);
-    } catch {
+    } catch (err) {
+      console.error("Room creation failed:", err);
       setError("ルームの作成に失敗しました");
       setLoading(false);
     }

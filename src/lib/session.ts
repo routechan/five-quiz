@@ -6,7 +6,9 @@ export function getSessionId(): string {
   let sessionId = localStorage.getItem(SESSION_KEY);
 
   if (!sessionId) {
-    sessionId = crypto.randomUUID();
+    sessionId = typeof crypto?.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
     localStorage.setItem(SESSION_KEY, sessionId);
   }
 
