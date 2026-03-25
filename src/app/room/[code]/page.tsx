@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useRoom } from '@/hooks/useRoom';
 import { useSession } from '@/hooks/useSession';
@@ -25,16 +25,30 @@ export default function RoomPage() {
 
   // 現在のプレイヤー
   const currentPlayer = players.find((p) => p.id === storedPlayerId);
+  // 過去に currentPlayer が見つかったことがあるかを追跡
+  const hasBeenPlayerRef = useRef(false);
+  useEffect(() => {
+    if (currentPlayer) {
+      hasBeenPlayerRef.current = true;
+    }
+  }, [currentPlayer]);
 
   const isHost = currentPlayer?.isHost ?? false;
   const isSpectator = currentPlayer?.isSpectator ?? false;
 
   // 未参加ならニックネーム入力へ
+  // ただし、一度プレイヤーとして認識された後に一時的に見つからなくなった場合は
+  // リダイレクトせず refetch で復帰を試みる（Realtime再接続やネットワーク不安定対策）
   useEffect(() => {
     if (!loading && !error && room && sessionId && !currentPlayer) {
+      if (hasBeenPlayerRef.current) {
+        // 一時的な不整合 — リダイレクトせず再取得を試みる
+        refetch();
+        return;
+      }
       router.push(`/room/${code}/nickname`);
     }
-  }, [loading, error, room, sessionId, currentPlayer, router, code]);
+  }, [loading, error, room, sessionId, currentPlayer, router, code, refetch]);
 
 
   if (loading) {

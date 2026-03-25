@@ -215,8 +215,48 @@ export function ResultDisplay({
       {!hasJudged ? (
         <div className="quiz-card-primary p-5 space-y-3">
           <p className="font-extrabold text-center" style={{ color: 'var(--color-text-primary)' }}>
-            あなたの判定:
+            あなたの文字は合っている？
           </p>
+          {/* 自分の担当文字と正解文字を並べて表示 */}
+          <div className="flex items-center justify-center gap-3">
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-xs font-bold" style={{ color: 'var(--color-text-muted)' }}>あなたの回答</span>
+              <div
+                className="w-14 h-14 rounded-xl flex items-center justify-center overflow-hidden"
+                style={{
+                  border: '3px solid var(--color-canvas)',
+                  background: 'white',
+                }}
+              >
+                {myAnswer?.drawingData?.startsWith('dummy:') ? (
+                  <span className="text-2xl font-extrabold" style={{ color: 'var(--color-text-primary)' }}>
+                    {myAnswer.drawingData.replace('dummy:', '')}
+                  </span>
+                ) : myAnswer?.drawingData ? (
+                  <img src={myAnswer.drawingData} alt="あなたの回答" className="w-full h-full object-contain" />
+                ) : (
+                  <span className="text-lg font-bold" style={{ color: 'var(--color-secondary)' }}>?</span>
+                )}
+              </div>
+            </div>
+            <span className="text-2xl font-extrabold" style={{ color: 'var(--color-text-muted)' }}>→</span>
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-xs font-bold" style={{ color: 'var(--color-text-muted)' }}>
+                正解（{currentPlayer.position}文字目）
+              </span>
+              <div
+                className="w-14 h-14 rounded-xl flex items-center justify-center"
+                style={{
+                  border: '3px solid var(--color-gold)',
+                  background: 'rgba(255, 215, 0, 0.1)',
+                }}
+              >
+                <span className="text-2xl font-extrabold" style={{ color: 'var(--color-gold)' }}>
+                  {answerChars[((currentPlayer.position ?? 1) - 1)] ?? '?'}
+                </span>
+              </div>
+            </div>
+          </div>
           <div className="flex gap-4 justify-center">
             <button
               onClick={() => handleJudge(true)}
