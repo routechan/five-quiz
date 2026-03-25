@@ -107,6 +107,7 @@ export function ResultDisplay({
   }, [allJudged, teamCorrect, playCorrect, playIncorrect]);
 
   const handleJudge = async (isCorrect: boolean) => {
+    if (judging) return;
     setJudging(true);
     setError('');
     try {

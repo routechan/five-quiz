@@ -23,6 +23,7 @@ export function WaitingAnswer({ players, answers, isHost, roomCode, allSubmitted
   const submittedIds = new Set(answers.map((a) => a.playerId));
 
   const handleReveal = async () => {
+    if (revealing) return;
     setRevealing(true);
     try {
       await api.revealAnswers(roomCode);

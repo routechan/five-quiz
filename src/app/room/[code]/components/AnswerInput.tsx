@@ -22,6 +22,7 @@ interface Props {
 
 export function AnswerInput({ room, players, currentPlayer, currentQuiz, roomCode }: Props) {
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const { playQuestion } = useSound();
 
@@ -35,12 +36,15 @@ export function AnswerInput({ room, players, currentPlayer, currentQuiz, roomCod
   );
 
   const handleSubmit = async (dataUrl: string) => {
+    if (submitting) return;
+    setSubmitting(true);
     setError('');
     try {
       await api.submitAnswer(roomCode, dataUrl);
       setSubmitted(true);
     } catch {
       setError('回答の提出に失敗しました');
+      setSubmitting(false);
     }
   };
 
@@ -96,7 +100,7 @@ export function AnswerInput({ room, players, currentPlayer, currentQuiz, roomCod
       </div>
 
       {/* 手書きキャンバス */}
-      <DrawingCanvas onSubmit={handleSubmit} />
+      <DrawingCanvas onSubmit={handleSubmit} disabled={submitting} />
 
       {error && (
         <p className="text-sm text-center font-bold" style={{ color: 'var(--color-error)' }}>{error}</p>

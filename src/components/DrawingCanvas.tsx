@@ -156,7 +156,9 @@ export function DrawingCanvas({ onSubmit, disabled = false }: Props) {
   const handleSubmit = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const dataUrl = canvas.toDataURL('image/png');
+    // WebP 品質0.6で圧縮（PNG比で80-90%サイズ削減）
+    // WebP非対応ブラウザはPNGにフォールバック
+    const dataUrl = canvas.toDataURL('image/webp', 0.6);
     onSubmit(dataUrl);
   }, [onSubmit]);
 

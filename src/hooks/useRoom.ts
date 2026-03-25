@@ -14,9 +14,12 @@ interface RoomState {
   error: string | null;
 }
 
-const POLL_INTERVAL = 30000; // フォールバックポーリング: 30秒（Realtime未接続時のみ）
+const POLL_INTERVAL_BASE = 30000; // フォールバックポーリング基準: 30秒（Realtime未接続時のみ）
+const POLL_JITTER = 5000; // ポーリングにランダムなズレを加えてサーバー負荷を分散
 const DEBOUNCE_MS = 300; // ステータス変更時のデバウンス間隔
 const DEBOUNCE_MS_SOFT = 2000; // ステータス同一時（回答追加等）のデバウンス間隔
+const RECONNECT_BASE_MS = 1000; // Realtime再接続の初期待機時間
+const RECONNECT_MAX_MS = 30000; // Realtime再接続の最大待機時間
 
 export function useRoom(roomCode: string) {
   const [state, setState] = useState<RoomState>({
@@ -40,6 +43,8 @@ export function useRoom(roomCode: string) {
   const fetchingRef = useRef(false);
 
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptRef = useRef(0);
 
   const fetchRoom = useCallback(async () => {
     // 同時実行ガード: 前のfetchが完了するまでスキップ
@@ -124,14 +129,30 @@ export function useRoom(roomCode: string) {
     );
 
     channel.subscribe((status) => {
-      realtimeConnectedRef.current = status === 'SUBSCRIBED';
-      // エラー/タイムアウト時はフォールバックポーリングに任せる
-      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+      if (status === 'SUBSCRIBED') {
+        realtimeConnectedRef.current = true;
+        reconnectAttemptRef.current = 0; // 接続成功でリセット
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
         realtimeConnectedRef.current = false;
+        // Exponential Backoff で再接続（thundering herd防止）
+        const attempt = reconnectAttemptRef.current;
+        const baseDelay = Math.min(RECONNECT_BASE_MS * 2 ** attempt, RECONNECT_MAX_MS);
+        // ジッターを加えて同時再接続を分散
+        const jitter = Math.random() * baseDelay * 0.5;
+        const delay = baseDelay + jitter;
+        reconnectAttemptRef.current = attempt + 1;
+
+        if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = setTimeout(() => {
+          setupChannelRef.current();
+        }, delay);
       }
     });
     channelRef.current = channel;
   }, [debouncedFetchRoom]);
+
+  const setupChannelRef = useRef(setupChannel);
+  setupChannelRef.current = setupChannel;
 
   // Supabase Realtime 購読（rooms テーブルのみ監視 — コネクション節約）
   // players/answers の変更は rooms.status の遷移で検知する。
@@ -150,6 +171,9 @@ export function useRoom(roomCode: string) {
       }
       if (retryTimerRef.current) {
         clearTimeout(retryTimerRef.current);
+      }
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
       }
     };
   }, [roomCode, setupChannel]);
@@ -175,12 +199,14 @@ export function useRoom(roomCode: string) {
   }, [setupChannel]);
 
   // フォールバックポーリング（Realtime未検知の変更を補完）
+  // ジッター付きで各クライアントのタイミングを分散し、サーバー負荷を平準化
   useEffect(() => {
+    const jitteredInterval = POLL_INTERVAL_BASE + Math.random() * POLL_JITTER;
     const interval = setInterval(() => {
       if (!realtimeConnectedRef.current) {
         fetchRoomRef.current();
       }
-    }, POLL_INTERVAL);
+    }, jitteredInterval);
 
     return () => clearInterval(interval);
   }, [roomCode]);

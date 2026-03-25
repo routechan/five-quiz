@@ -11,11 +11,13 @@ async function request<T>(
 ): Promise<T> {
   const sessionId = getSessionId();
   const method = options.method || 'GET';
-  const dedupeKey = `${method}:${path}`;
 
-  // 同じリクエストが進行中ならそれを返す（GET/POST/PATCH全て）
-  const inflight = inflightRequests.get(dedupeKey);
-  if (inflight) return inflight as Promise<T>;
+  // GETのみ重複排除（POST/PATCHはユーザー操作ごとに送信する必要がある）
+  const dedupeKey = `${method}:${path}`;
+  if (method === 'GET') {
+    const inflight = inflightRequests.get(dedupeKey);
+    if (inflight) return inflight as Promise<T>;
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000); // 10秒タイムアウト
@@ -45,7 +47,9 @@ async function request<T>(
     }
   })();
 
-  inflightRequests.set(dedupeKey, promise);
+  if (method === 'GET') {
+    inflightRequests.set(dedupeKey, promise);
+  }
 
   return promise;
 }

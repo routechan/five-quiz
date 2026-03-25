@@ -8,6 +8,7 @@ export async function GET(
 ) {
   const supabase = createServerSupabase();
   const { code } = await params;
+  const sessionId = request.headers.get('x-session-id') || '';
 
   try {
     // ルーム + プレイヤーを1クエリで取得（ポーリング負荷軽減）
@@ -30,8 +31,15 @@ export async function GET(
         (a.position ?? 999) - (b.position ?? 999)
     );
 
+    // 観戦者かどうかを判定（観戦者にはdrawing_dataを送らない = レスポンスサイズ大幅削減）
+    const callerPlayer = (players as Record<string, unknown>[]).find(
+      (p) => p.session_id === sessionId
+    );
+    const isSpectator = callerPlayer?.is_spectator === true;
+
     const needsAnswers = room.current_quiz_id && !['waiting', 'playing'].includes(room.status);
-    const answerColumns = room.status === 'judging'
+    // 観戦者にはdrawing_dataを送らない（1レスポンスあたり数百KB削減）
+    const answerColumns = (room.status === 'judging' && !isSpectator)
       ? 'id, room_id, quiz_id, player_id, drawing_data, is_correct'
       : 'id, room_id, quiz_id, player_id, is_correct';
 
