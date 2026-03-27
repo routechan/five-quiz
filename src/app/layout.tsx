@@ -61,11 +61,6 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <head>
-        <Script
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1738406462514632"
-          crossOrigin="anonymous"
-          strategy="lazyOnload"
-        />
         <script
           dangerouslySetInnerHTML={{
             __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}`,

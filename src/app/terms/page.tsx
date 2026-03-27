@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import AdSense from "@/components/AdSense";
 
 export const metadata: Metadata = {
   title: "利用規約 - ファイブクイズ",
@@ -9,6 +10,7 @@ export const metadata: Metadata = {
 export default function TermsPage() {
   return (
     <div className="min-h-screen bg-white flex flex-col items-center px-4">
+      <AdSense />
       <div className="max-w-2xl w-full py-12 space-y-8">
         <div className="text-center">
           <Link

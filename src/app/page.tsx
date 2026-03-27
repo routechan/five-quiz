@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import Link from "next/link";
 import { api } from "@/lib/api";
+import AdSense from "@/components/AdSense";
 
 export default function TopPage() {
   const router = useRouter();
@@ -39,6 +40,7 @@ export default function TopPage() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col items-center px-4 relative overflow-hidden">
+      <AdSense />
       {/* Background decorations */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
@@ -357,7 +359,37 @@ export default function TopPage() {
       </div>
 
       {/* フッター */}
-      <footer className="w-full py-6 mt-auto relative z-10 text-center space-y-2">
+      <footer className="w-full py-6 mt-auto relative z-10 text-center space-y-3">
+        <div className="flex justify-center flex-wrap gap-x-4 gap-y-1">
+          <Link
+            href="/about"
+            className="text-xs hover:underline"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            ファイブクイズについて
+          </Link>
+          <Link
+            href="/guide"
+            className="text-xs hover:underline"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            遊び方ガイド
+          </Link>
+          <Link
+            href="/faq"
+            className="text-xs hover:underline"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            よくある質問
+          </Link>
+          <Link
+            href="/streaming"
+            className="text-xs hover:underline"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            配信ガイド
+          </Link>
+        </div>
         <div className="flex justify-center gap-4">
           <Link
             href="/privacy"
