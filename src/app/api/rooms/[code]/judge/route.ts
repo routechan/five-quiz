@@ -85,12 +85,12 @@ export async function PATCH(
       );
     }
 
-    // Realtime通知トリガー: 正解時はcorrect_count増加、それ以外はtouch
-    const updateData = allJudged && teamCorrect
-      ? { correct_count: room.correct_count + 1 }
-      : { updated_at: new Date().toISOString() };
-
-    await supabase.from('rooms').update(updateData).eq('id', room.id);
+    // Realtime通知トリガー: 正解時はcorrect_countをアトミックにインクリメント
+    if (allJudged && teamCorrect) {
+      await supabase.rpc('increment_correct_count', { room_id: room.id });
+    } else {
+      await supabase.from('rooms').update({ updated_at: new Date().toISOString() }).eq('id', room.id);
+    }
 
     return NextResponse.json({
       success: true,
