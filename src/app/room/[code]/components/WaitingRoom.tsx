@@ -298,6 +298,7 @@ export function WaitingRoom({ room, players, spectators = [], currentPlayer, isH
             setError('');
             try {
               await api.addBot(roomCode);
+              onRefetch?.();
             } catch (err: unknown) {
               const apiErr = err as { error?: { message?: string } };
               setError(apiErr?.error?.message || 'BOT追加に失敗しました');
