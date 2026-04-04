@@ -15,9 +15,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 古いルームを自動削除（10回に1回の確率で実行し、DB負荷を軽減）
+    // 古いルームを自動削除（10回に1回の確率で実行、レスポンスを待たずにfireforget）
     if (Math.random() < 0.1) {
-      await supabase.rpc('cleanup_old_rooms');
+      supabase.rpc('cleanup_old_rooms');
     }
 
     // ルームコード生成
@@ -47,12 +47,6 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (playerError) throw playerError;
-
-    // ルームにホストIDを設定
-    await supabase
-      .from('rooms')
-      .update({ host_player_id: player.id })
-      .eq('id', room.id);
 
     return NextResponse.json(
       { roomCode: room.room_code, roomId: room.id, playerId: player.id },
