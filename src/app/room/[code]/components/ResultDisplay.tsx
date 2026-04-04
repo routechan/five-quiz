@@ -16,6 +16,7 @@ interface Props {
   currentQuiz: { id: string; question: string; answer?: string };
   isHost: boolean;
   roomCode: string;
+  onRefetch?: () => void;
 }
 
 export function ResultDisplay({
@@ -26,6 +27,7 @@ export function ResultDisplay({
   currentQuiz,
   isHost,
   roomCode,
+  onRefetch,
 }: Props) {
   const [judging, setJudging] = useState(false);
   const [judgedLocal, setJudgedLocal] = useState<boolean | null>(null); // 送信済みの判定結果（再フェッチ前のUI即反映用）
@@ -113,6 +115,7 @@ export function ResultDisplay({
     try {
       await api.judgeAnswer(roomCode, isCorrect);
       setJudgedLocal(isCorrect);
+      onRefetch?.();
     } catch {
       setError('判定に失敗しました');
     } finally {
@@ -125,6 +128,7 @@ export function ResultDisplay({
     setLoading(true);
     try {
       await api.nextQuiz(roomCode);
+      onRefetch?.();
     } catch (err: unknown) {
       const apiErr = err as { error?: { code?: string } };
       if (apiErr?.error?.code === 'NO_QUIZ_AVAILABLE') {
@@ -141,6 +145,7 @@ export function ResultDisplay({
     setEnding(true);
     try {
       await api.endGame(roomCode);
+      onRefetch?.();
     } catch {
       setError('ゲーム終了に失敗しました');
       setEnding(false);

@@ -141,6 +141,7 @@ export default function RoomPage() {
             currentPlayer={currentPlayer!}
             currentQuiz={currentQuiz!}
             roomCode={code}
+            onRefetch={refetch}
           />
         );
 
@@ -153,6 +154,7 @@ export default function RoomPage() {
               isHost={isHost}
               roomCode={code}
               allSubmitted={false}
+              onRefetch={refetch}
             />
           );
         }
@@ -163,6 +165,7 @@ export default function RoomPage() {
             currentPlayer={currentPlayer!}
             currentQuiz={currentQuiz!}
             roomCode={code}
+            onRefetch={refetch}
           />
         );
 
@@ -174,6 +177,7 @@ export default function RoomPage() {
             isHost={isHost}
             roomCode={code}
             allSubmitted={true}
+            onRefetch={refetch}
           />
         );
 
@@ -187,6 +191,7 @@ export default function RoomPage() {
             currentQuiz={currentQuiz!}
             isHost={isHost}
             roomCode={code}
+            onRefetch={refetch}
           />
         );
 

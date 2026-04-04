@@ -75,9 +75,11 @@ export function WaitingRoom({ room, players, spectators = [], currentPlayer, isH
     setError('');
     try {
       await api.startGame(roomCode);
+      onRefetch?.();
     } catch (err: unknown) {
       const apiErr = err as { error?: { message?: string } };
       setError(apiErr?.error?.message || 'ゲーム開始に失敗しました');
+    } finally {
       setStarting(false);
     }
   };

@@ -10,9 +10,10 @@ interface Props {
   isHost: boolean;
   roomCode: string;
   allSubmitted: boolean;
+  onRefetch?: () => void;
 }
 
-export function WaitingAnswer({ players, answers, isHost, roomCode, allSubmitted }: Props) {
+export function WaitingAnswer({ players, answers, isHost, roomCode, allSubmitted, onRefetch }: Props) {
   const [revealing, setRevealing] = useState(false);
   const [kickingId, setKickingId] = useState<string | null>(null);
 
@@ -27,6 +28,7 @@ export function WaitingAnswer({ players, answers, isHost, roomCode, allSubmitted
     setRevealing(true);
     try {
       await api.revealAnswers(roomCode);
+      onRefetch?.();
     } catch {
       setRevealing(false);
     }

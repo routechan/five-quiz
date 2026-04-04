@@ -18,9 +18,10 @@ interface Props {
   currentPlayer: Player;
   currentQuiz: { id: string; question: string };
   roomCode: string;
+  onRefetch?: () => void;
 }
 
-export function AnswerInput({ room, players, currentPlayer, currentQuiz, roomCode }: Props) {
+export function AnswerInput({ room, players, currentPlayer, currentQuiz, roomCode, onRefetch }: Props) {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -42,6 +43,7 @@ export function AnswerInput({ room, players, currentPlayer, currentQuiz, roomCod
     try {
       await api.submitAnswer(roomCode, dataUrl);
       setSubmitted(true);
+      onRefetch?.();
     } catch {
       setError('回答の提出に失敗しました');
       setSubmitting(false);
