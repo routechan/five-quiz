@@ -17,7 +17,7 @@ async function downloadAllAnswers(
 
   const SLOT = 110;
   const IMG_SIZE = 72;
-  const PAD = 20;
+  const PAD = 36;
   // 問題パネル（紺背景）の高さを問題文の長さで可変に
   const Q_PANEL_H = 90;
   const ANSWERS_H = IMG_SIZE + 52; // 画像 + 正解文字 + ニックネーム
