@@ -13,14 +13,17 @@ async function downloadAllAnswers(
   players: Player[],
   answerMap: Map<string, Answer>,
 ) {
-  const SLOT = 110;      // 1人分の幅
-  const IMG_SIZE = 72;   // 手書き画像の正方形サイズ
-  const PAD = 16;
-  const HEADER_H = 100;  // 問題文・正解エリア
-  const FOOTER_H = 28;   // クレジット
-  const SLOT_H = IMG_SIZE + 40; // 画像 + 名前 + 正解文字
-  const W = Math.max(SLOT * players.length + PAD * 2, 300);
-  const H = HEADER_H + SLOT_H + PAD + FOOTER_H;
+  const sorted = [...players].sort((a, b) => (a.position ?? 99) - (b.position ?? 99));
+
+  const SLOT = 110;
+  const IMG_SIZE = 72;
+  const PAD = 20;
+  // 問題パネル（紺背景）の高さを問題文の長さで可変に
+  const Q_PANEL_H = 90;
+  const ANSWERS_H = IMG_SIZE + 52; // 画像 + 正解文字 + ニックネーム
+  const FOOTER_H = 24;
+  const W = Math.max(SLOT * sorted.length + PAD * 2, 340);
+  const H = Q_PANEL_H + PAD + ANSWERS_H + PAD + FOOTER_H;
 
   const canvas = document.createElement('canvas');
   canvas.width = W;
@@ -28,133 +31,138 @@ async function downloadAllAnswers(
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  // 背景
-  const grad = ctx.createLinearGradient(0, 0, W, H);
-  grad.addColorStop(0, '#C4291E');
-  grad.addColorStop(1, '#9B1F16');
-  ctx.fillStyle = grad;
+  // ===== 全体背景（白） =====
+  ctx.fillStyle = '#F5F5F5';
   ctx.fillRect(0, 0, W, H);
 
-  // タイトルバー
-  ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  ctx.fillRect(0, 0, W, 36);
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 16px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('ファイブクイズ', W / 2, 24);
+  // ===== 問題パネル（question-panel 風: 紺グラデ + 青枠） =====
+  const panelGrad = ctx.createLinearGradient(0, 0, W, Q_PANEL_H);
+  panelGrad.addColorStop(0, '#1a1a2e');
+  panelGrad.addColorStop(1, '#16213e');
+  ctx.fillStyle = panelGrad;
+  ctx.beginPath();
+  ctx.roundRect(0, 0, W, Q_PANEL_H, [0, 0, 16, 16]);
+  ctx.fill();
+  ctx.strokeStyle = '#1E90FF';
+  ctx.lineWidth = 3;
+  ctx.stroke();
 
-  // 問題文（折り返し）
-  ctx.font = 'bold 15px sans-serif';
-  ctx.fillStyle = '#ffe4e1';
+  // 問題文
+  ctx.font = 'bold 16px sans-serif';
+  ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
   const maxWidth = W - PAD * 2;
   let line = '';
-  let qy = 58;
+  let qy = 34;
   for (const ch of [...question]) {
     const test = line + ch;
     if (ctx.measureText(test).width > maxWidth && line !== '') {
       ctx.fillText(line, W / 2, qy);
       line = ch;
-      qy += 20;
+      qy += 22;
     } else {
       line = test;
     }
   }
   ctx.fillText(line, W / 2, qy);
 
-  // 正解（文字ごとに金色ボックス風）
+  // 正解（金色バッジ風）
   if (answerChars.length > 0) {
-    const answer = answerChars.join('');
-    ctx.font = 'bold 14px sans-serif';
-    ctx.fillStyle = '#FFD700';
-    ctx.fillText(`正解: ${answer}`, W / 2, HEADER_H - 8);
+    const CHAR_W = 26;
+    const CHAR_H = 26;
+    const totalCharW = answerChars.length * (CHAR_W + 4) - 4;
+    let cx = (W - totalCharW) / 2;
+    const cy = Q_PANEL_H - CHAR_H - 10;
+    for (const char of answerChars) {
+      ctx.fillStyle = 'rgba(255,215,0,0.15)';
+      ctx.strokeStyle = '#FFD700';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(cx, cy, CHAR_W, CHAR_H, 6);
+      ctx.fill();
+      ctx.stroke();
+      ctx.font = 'bold 15px sans-serif';
+      ctx.fillStyle = '#FFD700';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(char, cx + CHAR_W / 2, cy + CHAR_H / 2);
+      cx += CHAR_W + 4;
+    }
+    ctx.textBaseline = 'alphabetic';
   }
 
-  // 区切り線
-  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(PAD, HEADER_H);
-  ctx.lineTo(W - PAD, HEADER_H);
-  ctx.stroke();
-
-  // 各プレイヤーの回答を横並び
-  const sorted = [...players].sort((a, b) => (a.position ?? 99) - (b.position ?? 99));
-  const totalW = SLOT * sorted.length;
-  const startX = (W - totalW) / 2;
+  // ===== 各プレイヤーの回答（白背景カード風） =====
+  const totalSlotsW = SLOT * sorted.length;
+  const startX = (W - totalSlotsW) / 2;
+  const imgAreaY = Q_PANEL_H + PAD;
 
   for (let i = 0; i < sorted.length; i++) {
     const player = sorted[i];
     const answer = answerMap.get(player.id);
-    const cx = startX + SLOT * i + SLOT / 2;
-    const imgX = cx - IMG_SIZE / 2;
-    const imgY = HEADER_H + PAD;
+    const slotCx = startX + SLOT * i + SLOT / 2;
+    const imgX = slotCx - IMG_SIZE / 2;
 
-    // 白い背景の枠
     const isCorrect = answer?.isCorrect;
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.roundRect(imgX - 3, imgY - 3, IMG_SIZE + 6, IMG_SIZE + 6, 8);
-    ctx.fill();
+    const borderColor = isCorrect === true ? '#C4291E' : isCorrect === false ? '#093CF4' : '#C0C0C0';
+    const bgColor = isCorrect === true ? 'rgba(196,41,30,0.06)' : isCorrect === false ? 'rgba(9,60,244,0.06)' : '#ffffff';
 
-    // 正誤に応じた枠色
-    if (isCorrect === true) {
-      ctx.strokeStyle = '#C4291E';
-      ctx.lineWidth = 3;
-      ctx.stroke();
-    } else if (isCorrect === false) {
-      ctx.strokeStyle = '#093CF4';
-      ctx.lineWidth = 3;
-      ctx.stroke();
-    }
+    // 画像エリア背景
+    ctx.fillStyle = bgColor;
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.roundRect(imgX - 3, imgAreaY - 3, IMG_SIZE + 6, IMG_SIZE + 6, 10);
+    ctx.fill();
+    ctx.stroke();
 
     // 手書き画像 or テキスト
     const drawingData = answer?.drawingData ?? '';
     if (drawingData.startsWith('dummy:')) {
       const ch = drawingData.replace('dummy:', '');
-      ctx.font = `bold ${IMG_SIZE * 0.65}px sans-serif`;
-      ctx.fillStyle = '#333333';
+      ctx.font = `bold ${IMG_SIZE * 0.6}px sans-serif`;
+      ctx.fillStyle = '#1A1A1A';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(ch, cx, imgY + IMG_SIZE / 2);
+      ctx.fillText(ch, slotCx, imgAreaY + IMG_SIZE / 2);
       ctx.textBaseline = 'alphabetic';
     } else if (drawingData) {
       await new Promise<void>((resolve) => {
         const img = new Image();
-        img.onload = () => { ctx.drawImage(img, imgX, imgY, IMG_SIZE, IMG_SIZE); resolve(); };
+        img.onload = () => { ctx.drawImage(img, imgX, imgAreaY, IMG_SIZE, IMG_SIZE); resolve(); };
         img.onerror = () => resolve();
         img.src = drawingData;
       });
     } else {
-      ctx.font = `bold ${IMG_SIZE * 0.5}px sans-serif`;
-      ctx.fillStyle = '#999999';
+      ctx.font = `bold ${IMG_SIZE * 0.45}px sans-serif`;
+      ctx.fillStyle = '#888888';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('?', cx, imgY + IMG_SIZE / 2);
+      ctx.fillText('?', slotCx, imgAreaY + IMG_SIZE / 2);
       ctx.textBaseline = 'alphabetic';
     }
 
-    // 正解文字（担当）
+    // 担当正解文字（金色）
     const correctChar = answerChars[(player.position ?? 1) - 1] ?? '';
     ctx.font = 'bold 18px sans-serif';
-    ctx.fillStyle = '#FFD700';
+    ctx.fillStyle = '#B8860B';
     ctx.textAlign = 'center';
-    ctx.fillText(correctChar, cx, imgY + IMG_SIZE + 20);
+    ctx.fillText(correctChar, slotCx, imgAreaY + IMG_SIZE + 20);
 
     // ニックネーム
     ctx.font = '11px sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,0.8)';
-    ctx.fillText(player.nickname, cx, imgY + IMG_SIZE + 36);
+    ctx.fillStyle = '#888888';
+    ctx.fillText(player.nickname, slotCx, imgAreaY + IMG_SIZE + 36);
   }
 
-  // クレジット
+  // ===== クレジット =====
   ctx.font = '11px sans-serif';
-  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.fillStyle = '#aaaaaa';
   ctx.textAlign = 'center';
-  ctx.fillText('five-quiz.vercel.app', W / 2, H - 8);
+  ctx.fillText('five-quiz.vercel.app', W / 2, H - 7);
 
   const link = document.createElement('a');
-  link.download = `five-quiz-result.png`;
+  link.download = 'five-quiz-result.png';
   link.href = canvas.toDataURL('image/png');
   link.click();
 }
